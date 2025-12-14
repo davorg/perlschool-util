@@ -40,9 +40,9 @@ installed) or via the Docker image described below.
 
 ### `bin/check_ms_html`
 
-`check_ms_html` is a pre-flight linter for manuscripts written in
-Markdown/Markua with embedded HTML. Its job is to catch HTML that will
-break when converted to EPUB (which uses XHTML under the hood).
+[`check_ms_html`](bin/check_ms_html) is a pre-flight linter for manuscripts
+written in Markdown/Markua with embedded HTML. Its job is to catch HTML that
+will break when converted to EPUB (which uses XHTML under the hood).
 
 In broad terms it:
 
@@ -62,8 +62,8 @@ catch issues like unclosed `<br>` tags before they reach `pandoc` /
 
 ### `bin/make_book`
 
-`make_book` is the main build orchestrator for a Perl School book. Given a
-book repo containing a `book-metadata.yml` file, it will:
+[`make_book`](bin/make_book) is the main build orchestrator for a Perl School
+book. Given a book repo containing a `book-metadata.yml` file, it will:
 
 * Read `book-metadata.yml` (using `YAML::XS`) and extract at least:
 
@@ -106,7 +106,7 @@ be used from individual book repos, mounting a book directory at `/work` and
 running `make_book`, `check_ms_html` and `epubcheck` inside the container.
 
 Full details on building, tagging and using the image are in
-`DOCKER.md`.
+[`DOCKER.md`](DOCKER.md).
 
 ## GitHub Actions workflow
 
@@ -138,7 +138,7 @@ A typical workflow:
    downloaded from the Actions UI.
 
 A minimal example workflow file for a book repo lives in
-`github-actions-example.yml`.
+[`github-actions-example.yml`](github-actions-example.yml).
 
 Individual book repos are free to adapt this example (for example, to use
 specific image tags, only run on certain branches, or to trigger on tags
