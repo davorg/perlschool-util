@@ -1,0 +1,87 @@
+/* Base text */
+body {
+  font-family: "Noto Serif", "Georgia", "Times New Roman", serif;
+  line-height: 1.4;
+  font-size: 12.5pt;
+}
+
+/* Base heading sizes (no hard page breaks here) */
+h1 {
+  font-size: 1.8em;
+  font-weight: bold;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+h2 {
+  font-size: 1.4em;
+  font-weight: bold;
+  margin-top: 1.2em;
+  margin-bottom: 0.6em;
+}
+
+/* Make the book title *big* on half-title and title pages */
+.half-title h1,
+.title-page h1 {
+  font-size: 3.6em;   /* 2× the normal 1.8em */
+}
+
+/* Optional: bump subtitle and author a bit too */
+.title-page .subtitle {
+  font-size: 1.8em;
+}
+
+.title-page .author,
+.title-page .publisher {
+  font-size: 1.4em;
+}
+
+/* --- COVER PAGE --- */
+.cover-page {
+  margin: 0;           /* no extra top margin */
+  padding: 0;
+  text-align: center;
+  page-break-after: always;
+  break-after: page;
+}
+
+/* Scale image to fit width; height is PDF-specific (in book-pdf.css) */
+.cover-page .cover-image {
+  display: block;
+  max-width: 100%;
+/* width: 100%; */
+  height: auto;
+  margin: 0 auto;
+}
+
+.cover-page img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Publisher block + centred logo */
+.publisher-block {
+  width: 100%;
+}
+
+.publisher-logo {
+  display: block;
+  margin: 5em auto;
+  max-width: 20%;
+}
+
+/* Other front-matter sections: each on its own page/screen */
+.half-title,
+.title-page,
+.copyright-page,
+#toc {
+  page-break-after: always;
+  break-after: page; /* EPUB readers often treat this as “new screen” */
+  margin-top: 30%;
+}
+
+/* Prevent the subtitle on the title page from forcing a new page */
+.title-page h2 {
+  page-break-before: auto;
+}
+
