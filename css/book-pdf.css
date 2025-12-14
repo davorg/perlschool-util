@@ -21,7 +21,7 @@ h2 {
 /* A4-specific height cap for the cover image:
    297mm page height - 2 × 25mm margins = 247mm */
 .cover-page .cover-image {
-  max-height: 247mm;
+/*  max-height: 247mm; */
 }
 
 /* Don't force extra page breaks for headings in the front matter */
