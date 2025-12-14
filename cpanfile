@@ -1,4 +1,4 @@
-requiers 'Getopt::Long';
+requires 'Getopt::Long';
 requires 'Path::Tiny';
 requires 'Template';
 requires 'XML::LibXML';
