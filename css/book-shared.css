@@ -64,6 +64,10 @@ h2 {
   width: 100%;
 }
 
+.copyright-page p.title {
+  font-style: italic;
+}
+
 .publisher-logo {
   display: block;
   margin: 5em auto;

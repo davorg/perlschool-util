@@ -19,8 +19,8 @@ my $metadata_file = 'book-metadata.yml';
 my $keep_build    = 0;
 
 GetOptions(
-    'metadata=s'   => \$metadata_file,
-    'keep-build!'  => \$keep_build,
+  'metadata=s'   => \$metadata_file,
+  'keep-build!'  => \$keep_build,
 ) or die <<"USAGE";
 Usage: make_book [--metadata book-metadata.yml] [--keep-build]
 USAGE
@@ -30,29 +30,29 @@ USAGE
 # ------------------------------------------------------------
 
 sub run (@cmd) {
-    say "+ @cmd";
-    system @cmd;
-    if ($? == -1) {
-        die "Failed to execute @cmd: $!\n";
-    } elsif ($? & 127) {
-        die sprintf "Command @cmd died with signal %d\n", ($? & 127);
-    } elsif ($? != 0) {
-        die sprintf "Command @cmd exited with code %d\n", ($? >> 8);
-    }
+  say "+ @cmd";
+  system @cmd;
+  if ($? == -1) {
+    die "Failed to execute @cmd: $!\n";
+  } elsif ($? & 127) {
+    die sprintf "Command @cmd died with signal %d\n", ($? & 127);
+  } elsif ($? != 0) {
+    die sprintf "Command @cmd exited with code %d\n", ($? >> 8);
+  }
 }
 
 sub slugify ($s) {
-    $s =~ s/^\s+|\s+$//g;
-    $s = lc $s;
-    $s =~ s/[^a-z0-9]+/-/g;
-    $s =~ s/^-+|-+$//g;
-    return $s;
+  $s =~ s/^\s+|\s+$//g;
+  $s = lc $s;
+  $s =~ s/[^a-z0-9]+/-/g;
+  $s =~ s/^-+|-+$//g;
+  return $s;
 }
 
 sub file_uri ($path) {
-    my $abs = path($path)->absolute->stringify;
-    $abs =~ s/ /%20/g;        # minimal escaping is enough here
-    return "file://$abs";
+  my $abs = path($path)->absolute->stringify;
+  $abs =~ s/ /%20/g;        # minimal escaping is enough here
+  return "file://$abs";
 }
 
 # ------------------------------------------------------------
@@ -66,7 +66,7 @@ my $css_pdf          = $css_dir->child('book-pdf.css');
 my $utils_images_dir = $utils_root->child('images');
 
 for my $css ($css_shared, $css_pdf) {
-    die "Missing CSS file: $css\n" unless $css->is_file;
+  die "Missing CSS file: $css\n" unless $css->is_file;
 }
 
 say "UTILS:";
@@ -84,8 +84,8 @@ my $meta = LoadFile($metadata_file)
   or die "Failed to load $metadata_file\n";
 
 for my $required (qw/title manuscript cover_image/) {
-    die "Missing required key '$required' in $metadata_file\n"
-      unless defined $meta->{$required} && length $meta->{$required};
+  die "Missing required key '$required' in $metadata_file\n"
+    unless defined $meta->{$required} && length $meta->{$required};
 }
 
 my $title      = $meta->{title};
@@ -115,7 +115,7 @@ my $build_dir = path('build');
 my $built_dir = path('built');
 
 if ($build_dir->exists) {
-    $build_dir->remove_tree({ safe => 0 });
+  $build_dir->remove_tree({ safe => 0 });
 }
 $build_dir->mkpath;
 $built_dir->mkpath;
@@ -147,20 +147,33 @@ my $pdf_front_tmpl = <<'PDF_TMPL';
 </section>
 
 <section class="copyright-page">
-  <h2>Copyright</h2>
-  <p>&copy; [% copyright_year %] [% copyright_holder %]</p>
+  <p class="title">[% title %]</p>
+  <p>&copy; [% copyright_year %] [% copyright_holder %] . All rights reserved.</p>
 
-  <p>All rights reserved.</p>
-
-[% IF publisher %]
-  <p>Published by [% publisher %].</p>
-[% END %]
-
-[% IF isbn %]
+[% IF isbn -%]
   <p>ISBN: [% isbn %]</p>
-[% END %]
+[% END -%]
 
-  <!-- TODO: replace this block with the full standard Perl School copyright wording -->
+[% IF publisher -%]
+  <p>Published by [% publisher %].</p>
+[% END -%]
+
+[% IF publisher_web -%]
+  <p>[% publisher_web %]</p>
+[% END -%]
+
+  <p>No part of this publication may be reproduced, stored in a retrieval system, or
+    transmitted in any form or by any means, electronic, mechanical, photocopying,
+    recording or otherwise, without the prior written permission of the publisher,
+    except in the case of brief quotations embodied in critical articles and reviews.</p>
+
+  <p>The information in this book is distributed on an “as is” basis, without warranty.
+    While every precaution has been taken in the preparation of this book, neither the
+    author nor the publisher shall have any liability to any person or entity with
+    respect to any loss or damage caused or alleged to be caused directly or indirectly
+    by the instructions, examples, or other content contained in this book.</p>
+
+  <p>Set in Markdown and typeset to PDF/ePub with Pandoc and wkhtmltopdf.</p>
 </section>
 PDF_TMPL
 
@@ -168,19 +181,35 @@ PDF_TMPL
 my $epub_front_tmpl = <<'EPUB_TMPL';
 [%# EPUB front matter: copyright page only %]
 
-## Copyright
+*[% title %]*
 
-© [% copyright_year %] [% copyright_holder %]
+&copy; [% copyright_year %] [% copyright_holder %]. All rights reserved.
 
-All rights reserved.
+[% IF isbn %]
+ISBN: [% isbn %]
+[% END %]
 
 [% IF publisher %]
 Published by [% publisher %].
 [% END %]
 
-[% IF isbn %]
-ISBN: [% isbn %]
-[% END %]
+[% IF publisher AND publisher_web -%]
+[[% publisher%]](https://[% publisher_web %]/)
+[% END -%]
+
+No part of this publication may be reproduced, stored in a retrieval system, or
+transmitted in any form or by any means, electronic, mechanical, photocopying,
+recording or otherwise, without the prior written permission of the publisher,
+except in the case of brief quotations embodied in critical articles and reviews.
+
+The information in this book is distributed on an “as is” basis, without warranty.
+While every precaution has been taken in the preparation of this book, neither the
+author nor the publisher shall have any liability to any person or entity with
+respect to any loss or damage caused or alleged to be caused directly or indirectly
+by the instructions, examples, or other content contained in this book.
+
+Set in Markdown and typeset to PDF/ePub with Pandoc and wkhtmltopdf.
+
 EPUB_TMPL
 
 # ------------------------------------------------------------
@@ -190,14 +219,14 @@ EPUB_TMPL
 my $manuscript_text = path($manuscript)->slurp_utf8;
 
 my %ctx = (
-    %$meta,
-    author           => $author,
-    subtitle         => $subtitle,
-    publisher        => $publisher,
-    isbn             => $isbn,
-    copyright_year   => $copyright_year,
-    copyright_holder => $copyright_holder,
-    cover_image      => $cover,
+  %$meta,
+  author           => $author,
+  subtitle         => $subtitle,
+  publisher        => $publisher,
+  isbn             => $isbn,
+  copyright_year   => $copyright_year,
+  copyright_holder => $copyright_holder,
+  cover_image      => $cover,
 );
 
 my $pdf_front_html;
@@ -220,20 +249,20 @@ my $book_images_dir  = path('images');
 my $build_images_dir = $build_dir->child('images');
 
 if ( $book_images_dir->is_dir ) {
-    dircopy($book_images_dir->stringify, $build_images_dir->stringify)
-      or die "Failed to copy images/ into build/images/\n";
+  dircopy($book_images_dir->stringify, $build_images_dir->stringify)
+    or die "Failed to copy images/ into build/images/\n";
 }
 
 my $logo_name  = 'perlschool-logo.png';
 my $build_logo = $build_images_dir->child($logo_name);
 
 if ( !$build_logo->is_file ) {
-    my $utils_logo = $utils_images_dir->child($logo_name);
-    if ( $utils_logo->is_file ) {
-        $build_images_dir->mkpath;
-        copy($utils_logo->stringify, $build_logo->stringify)
-          or die "Failed to copy $utils_logo to $build_logo: $!\n";
-    }
+  my $utils_logo = $utils_images_dir->child($logo_name);
+  if ( $utils_logo->is_file ) {
+    $build_images_dir->mkpath;
+    copy($utils_logo->stringify, $build_logo->stringify)
+      or die "Failed to copy $utils_logo to $build_logo: $!\n";
+  }
 }
 
 # ------------------------------------------------------------
@@ -245,14 +274,14 @@ if ( !$build_logo->is_file ) {
 my $body_html_path = $build_dir->child('body.html');
 
 run(
-    'pandoc',
-    $manuscript,
-    '--from=markdown',
-    '--toc',
-    '--toc-depth=2',
-    '--standalone',
-    '--resource-path=.:images',
-    '-o', $body_html_path->stringify,
+  'pandoc',
+  $manuscript,
+  '--from=markdown',
+  '--toc',
+  '--toc-depth=2',
+  '--standalone',
+  '--resource-path=.:images',
+  '-o', $body_html_path->stringify,
 );
 
 my $body_full = $body_html_path->slurp_utf8;
@@ -297,15 +326,15 @@ $html_output->spew_utf8($final_html);
 my $pdf_file = $built_dir->child("$output_base.pdf");
 
 run(
-    'wkhtmltopdf',
-    '--enable-local-file-access',
-    '--page-size', 'A4',
-    '--margin-top',    '25mm',
-    '--margin-bottom', '25mm',
-    '--margin-left',   '25mm',
-    '--margin-right',  '25mm',
-    $html_output->stringify,
-    $pdf_file->stringify,
+  'wkhtmltopdf',
+  '--enable-local-file-access',
+  '--page-size', 'A4',
+  '--margin-top',    '25mm',
+  '--margin-bottom', '25mm',
+  '--margin-left',   '25mm',
+  '--margin-right',  '25mm',
+  $html_output->stringify,
+  $pdf_file->stringify,
 );
 
 # ------------------------------------------------------------
@@ -315,23 +344,21 @@ run(
 my $epub_file = $built_dir->child("$output_base.epub");
 
 my @epub_resource_paths = (
-    '.',
-    'images',
-    $utils_images_dir->stringify,
+  '.',
+  'images',
+  $utils_images_dir->stringify,
 );
 
 run(
-    'pandoc',
-    $epub_input->stringify,
-    '--from=markdown',
-    "--metadata-file=$metadata_file",
-    '--toc',
-    '--toc-depth=2',
-    '--standalone',
-    '--resource-path=' . join(':', @epub_resource_paths),
-    '-c', $css_shared->stringify,
-    "--epub-cover-image=$cover",
-    '-o', $epub_file->stringify,
+  'pandoc',
+  $epub_input->stringify,
+  '--from=markdown',
+  "--metadata-file=$metadata_file",
+  '--standalone',
+  '--resource-path=' . join(':', @epub_resource_paths),
+  '-c', $css_shared->stringify,
+  "--epub-cover-image=$cover",
+  '-o', $epub_file->stringify,
 );
 
 # ------------------------------------------------------------
@@ -339,8 +366,8 @@ run(
 # ------------------------------------------------------------
 
 unless ($keep_build) {
-    say "Removing build directory...";
-    $build_dir->remove_tree({ safe => 0 });
+  say "Removing build directory...";
+  $build_dir->remove_tree({ safe => 0 });
 }
 
 say "Built:";
@@ -348,4 +375,3 @@ say "  " . $pdf_file->stringify;
 say "  " . $epub_file->stringify;
 
 exit 0;
-
