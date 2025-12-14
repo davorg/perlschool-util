@@ -7,6 +7,9 @@ use Getopt::Long qw(GetOptions);
 use Path::Tiny;
 use YAML::XS qw(LoadFile);
 use Template;
+use FindBin qw($Bin);
+use File::Copy::Recursive qw(dircopy);
+use File::Copy qw(copy);
 
 # ------------------------------------------------------------
 # Config / CLI
@@ -46,6 +49,33 @@ sub slugify ($s) {
     return $s;
 }
 
+sub file_uri ($path) {
+    my $abs = path($path)->absolute->stringify;
+    $abs =~ s/ /%20/g;        # minimal escaping is enough here
+    return "file://$abs";
+}
+
+# ------------------------------------------------------------
+# Locate perlschool-utils resources (CSS, shared images)
+# ------------------------------------------------------------
+
+my $utils_root       = path($Bin)->parent->absolute;
+my $css_dir          = $utils_root->child('css');
+my $css_shared       = $css_dir->child('book-shared.css');
+my $css_pdf          = $css_dir->child('book-pdf.css');
+my $utils_images_dir = $utils_root->child('images');
+
+for my $css ($css_shared, $css_pdf) {
+    die "Missing CSS file: $css\n" unless $css->is_file;
+}
+
+say "UTILS:";
+say "  Root       : $utils_root";
+say "  CSS dir    : $css_dir";
+say "  CSS shared : $css_shared";
+say "  CSS pdf    : $css_pdf";
+say "  Images dir : $utils_images_dir";
+
 # ------------------------------------------------------------
 # Load metadata
 # ------------------------------------------------------------
@@ -84,7 +114,6 @@ say "  Output base: $output_base";
 my $build_dir = path('build');
 my $built_dir = path('built');
 
-# Clean build dir at start, then recreate
 if ($build_dir->exists) {
     $build_dir->remove_tree({ safe => 0 });
 }
@@ -97,42 +126,45 @@ $built_dir->mkpath;
 
 my $tt = Template->new({}) or die Template->error;
 
-my $pdf_front_tmpl  = <<'PDF_TMPL';
-[%# PDF front matter in Markdown %]
+# FRONT MATTER FOR PDF (HTML fragment, not Markdown)
+my $pdf_front_tmpl = <<'PDF_TMPL';
+<section class="cover-page">
+  <img class="cover-image" src="[% cover_image %]" alt="">
+</section>
 
-![Cover image]( [% cover_image %] )
+<section class="half-title">
+  <h1>[% title %]</h1>
+</section>
 
-<div class="page-break"></div>
-
-# [% title %]
-
+<section class="title-page">
+  <h1>[% title %]</h1>
 [% IF subtitle %]
-## [% subtitle %]
+  <h2 class="subtitle">[% subtitle %]</h2>
 [% END %]
-
 [% IF author %]
-### [% author %]
+  <p class="author">[% author %]</p>
 [% END %]
+</section>
 
-<div class="page-break"></div>
+<section class="copyright-page">
+  <h2>Copyright</h2>
+  <p>&copy; [% copyright_year %] [% copyright_holder %]</p>
 
-## Copyright
-
-© [% copyright_year %] [% copyright_holder %]
-
-All rights reserved.
+  <p>All rights reserved.</p>
 
 [% IF publisher %]
-Published by [% publisher %].
+  <p>Published by [% publisher %].</p>
 [% END %]
 
 [% IF isbn %]
-ISBN: [% isbn %]
+  <p>ISBN: [% isbn %]</p>
 [% END %]
 
-<div class="page-break"></div>
+  <!-- TODO: replace this block with the full standard Perl School copyright wording -->
+</section>
 PDF_TMPL
 
+# EPUB still uses a simple Markdown copyright page
 my $epub_front_tmpl = <<'EPUB_TMPL';
 [%# EPUB front matter: copyright page only %]
 
@@ -152,12 +184,11 @@ ISBN: [% isbn %]
 EPUB_TMPL
 
 # ------------------------------------------------------------
-# Render front matter + combine with manuscript
+# Render front matter + read manuscript
 # ------------------------------------------------------------
 
 my $manuscript_text = path($manuscript)->slurp_utf8;
 
-# Build a context hash for templates
 my %ctx = (
     %$meta,
     author           => $author,
@@ -166,41 +197,98 @@ my %ctx = (
     isbn             => $isbn,
     copyright_year   => $copyright_year,
     copyright_holder => $copyright_holder,
+    cover_image      => $cover,
 );
 
-my ($pdf_front_md, $epub_front_md);
-
-$tt->process(\$pdf_front_tmpl,  \%ctx, \$pdf_front_md)
+my $pdf_front_html;
+$tt->process(\$pdf_front_tmpl, \%ctx, \$pdf_front_html)
   or die "Template error (PDF front matter): " . $tt->error . "\n";
 
+my $epub_front_md;
 $tt->process(\$epub_front_tmpl, \%ctx, \$epub_front_md)
   or die "Template error (EPUB front matter): " . $tt->error . "\n";
 
-my $pdf_input   = $build_dir->child('pdf_input.md');
-my $epub_input  = $build_dir->child('epub_input.md');
-my $html_output = $build_dir->child('book.html');
-
-$pdf_input->spew_utf8($pdf_front_md, "\n\n",  $manuscript_text);
+# For EPUB we still build a Markdown file: copyright page + manuscript
+my $epub_input = $build_dir->child('epub_input.md');
 $epub_input->spew_utf8($epub_front_md, "\n\n", $manuscript_text);
 
 # ------------------------------------------------------------
-# Build HTML for PDF
+# Prepare resources for wkhtmltopdf (images)
 # ------------------------------------------------------------
+
+my $book_images_dir  = path('images');
+my $build_images_dir = $build_dir->child('images');
+
+if ( $book_images_dir->is_dir ) {
+    dircopy($book_images_dir->stringify, $build_images_dir->stringify)
+      or die "Failed to copy images/ into build/images/\n";
+}
+
+my $logo_name  = 'perlschool-logo.png';
+my $build_logo = $build_images_dir->child($logo_name);
+
+if ( !$build_logo->is_file ) {
+    my $utils_logo = $utils_images_dir->child($logo_name);
+    if ( $utils_logo->is_file ) {
+        $build_images_dir->mkpath;
+        copy($utils_logo->stringify, $build_logo->stringify)
+          or die "Failed to copy $utils_logo to $build_logo: $!\n";
+    }
+}
+
+# ------------------------------------------------------------
+# Build BODY+ToC HTML (chapters only) via pandoc
+#   - No metadata file => no title block generated
+#   - We keep the ToC
+# ------------------------------------------------------------
+
+my $body_html_path = $build_dir->child('body.html');
 
 run(
     'pandoc',
-    $pdf_input->stringify,
+    $manuscript,
     '--from=markdown',
-    "--metadata-file=$metadata_file",
-    '--template=perlschool.html',
     '--toc',
     '--toc-depth=2',
     '--standalone',
     '--resource-path=.:images',
-    '-c', 'book-shared.css',
-    '-c', 'book-pdf.css',
-    '-o', $html_output->stringify,
+    '-o', $body_html_path->stringify,
 );
+
+my $body_full = $body_html_path->slurp_utf8;
+
+# Extract just the contents of <body>...</body>
+$body_full =~ s{.*?<body[^>]*>}{}s;
+$body_full =~ s{</body>.*}{}s;
+my $body_inner = $body_full;
+
+# ------------------------------------------------------------
+# Stitch front matter HTML + body HTML into final book.html
+# ------------------------------------------------------------
+
+my $html_output = $build_dir->child('book.html');
+
+my $css_shared_uri = file_uri($css_shared);
+my $css_pdf_uri    = file_uri($css_pdf);
+
+my $final_html = <<"HTML";
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>@{[ $title // '' ]}</title>
+  <link rel="stylesheet" href="$css_shared_uri" />
+  <link rel="stylesheet" href="$css_pdf_uri" />
+</head>
+<body>
+$pdf_front_html
+
+$body_inner
+</body>
+</html>
+HTML
+
+$html_output->spew_utf8($final_html);
 
 # ------------------------------------------------------------
 # Build PDF via wkhtmltopdf
@@ -221,22 +309,27 @@ run(
 );
 
 # ------------------------------------------------------------
-# Build EPUB via pandoc
+# Build EPUB via pandoc (mostly unchanged)
 # ------------------------------------------------------------
 
 my $epub_file = $built_dir->child("$output_base.epub");
+
+my @epub_resource_paths = (
+    '.',
+    'images',
+    $utils_images_dir->stringify,
+);
 
 run(
     'pandoc',
     $epub_input->stringify,
     '--from=markdown',
     "--metadata-file=$metadata_file",
-    '--template=perlschool.html',
     '--toc',
     '--toc-depth=2',
     '--standalone',
-    '--resource-path=.',
-    '-c', 'book-shared.css',
+    '--resource-path=' . join(':', @epub_resource_paths),
+    '-c', $css_shared->stringify,
     "--epub-cover-image=$cover",
     '-o', $epub_file->stringify,
 );
