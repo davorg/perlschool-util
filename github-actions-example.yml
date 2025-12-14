@@ -1,0 +1,86 @@
+name: Build book
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-book:
+    runs-on: ubuntu-latest
+
+    # Run all steps inside the perlschool-util image
+    container:
+      image: davorg/perlschool-util:1.0.0
+      # or: davorg/perlschool-util:latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Pre-flight checks (metadata and files)
+        run: |
+          perl -MYAML::XS=LoadFile -we '
+            my $meta_file = "book-metadata.yml";
+
+            # 1. Check metadata file exists
+            -e $meta_file
+              or die "ERROR: $meta_file not found in repository root\n";
+
+            # 2. Parse YAML
+            my $meta = LoadFile($meta_file)
+              or die "ERROR: Failed to load $meta_file\n";
+
+            # 3. Required keys
+            my @required_keys = qw(title manuscript cover_image);
+            for my $key (@required_keys) {
+              my $val = $meta->{$key};
+              if (!defined $val || $val eq "") {
+                die "ERROR: Missing or empty key '$key' in $meta_file\n";
+              }
+            }
+
+            # 4. Files must exist
+            for my $key (qw(manuscript cover_image)) {
+              my $path = $meta->{$key};
+              if (!-e $path) {
+                die "ERROR: File referenced by '$key' not found: $path\n";
+              }
+            }
+
+            print "Pre-flight checks passed:\\n";
+            print "  manuscript : $meta->{manuscript}\\n";
+            print "  cover_image: $meta->{cover_image}\\n";
+          '
+
+      # Optional: lint manuscript HTML/XHTML
+      - name: Lint manuscript HTML
+        run: |
+          # Adjust if your manuscript path isn’t just manuscript.md
+          # Here we read it from book-metadata.yml for consistency.
+          MS=$(perl -MYAML::XS=LoadFile -we '
+            my $m = LoadFile("book-metadata.yml");
+            die "No manuscript in metadata\n" unless $m->{manuscript};
+            print $m->{manuscript};
+          ')
+          echo "Linting manuscript: $MS"
+          check_ms_html "$MS"
+
+      - name: Build PDF and EPUB
+        run: |
+          make_book
+
+      - name: Run epubcheck on generated EPUB(s)
+        run: |
+          for f in built/*.epub; do
+            echo "Running epubcheck on $f"
+            epubcheck "$f"
+          done
+
+      - name: Upload built artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: book-files
+          path: built/*
+
