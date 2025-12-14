@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Default image name; override with IMAGE_NAME if needed
+IMAGE_NAME="${IMAGE_NAME:-davorg/perlschool-util}"
+
+# Require a version argument
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 X.Y.Z" >&2
+  echo "Example: $0 1.2.3" >&2
+  exit 1
+fi
+
+VERSION="$1"
+
+# Enforce simple SemVer X.Y.Z
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Error: version must be SemVer of the form X.Y.Z (e.g. 1.2.3)" >&2
+  exit 1
+fi
+
+echo "Building ${IMAGE_NAME}:${VERSION} (and tagging :latest) ..."
+docker build \
+  -t "${IMAGE_NAME}:${VERSION}" \
+  -t "${IMAGE_NAME}:latest" \
+  .
+
+echo "Pushing ${IMAGE_NAME}:${VERSION} ..."
+docker push "${IMAGE_NAME}:${VERSION}"
+
+echo "Pushing ${IMAGE_NAME}:latest ..."
+docker push "${IMAGE_NAME}:latest"
+
+echo "Done."
+
