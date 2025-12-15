@@ -16,11 +16,11 @@ use PerlSchool::Util qw(run slugify file_uri);
 field $metadata_file :param = 'book-metadata.yml';
 field $keep_build    :param = 0;
 
-# Resource paths
-field $utils_root;
-field $css_shared;
-field $css_pdf;
-field $utils_images_dir;
+# Resource paths (with computed defaults)
+field $utils_root       = path($RealBin)->parent->absolute;
+field $css_shared       = $utils_root->child('css')->child('book-shared.css');
+field $css_pdf          = $utils_root->child('css')->child('book-pdf.css');
+field $utils_images_dir = $utils_root->child('images');
 
 # Metadata fields
 field $meta;
@@ -37,15 +37,15 @@ field $isbn;
 field $copyright_year;
 field $copyright_holder;
 
-# Directory fields
-field $build_dir;
-field $built_dir;
+# Directory fields (with defaults)
+field $build_dir = path('build');
+field $built_dir = path('built');
 
-# Template Toolkit instance
-field $tt;
+# Template Toolkit instance (with default)
+field $tt = Template->new({}) or die Template->error;
 
 method run() {
-  $self->locate_resources();
+  $self->validate_resources();
   $self->load_metadata();
   $self->setup_directories();
   
@@ -69,20 +69,14 @@ method run() {
   return 0;
 }
 
-method locate_resources() {
-  $utils_root       = path($RealBin)->parent->absolute;
-  my $css_dir       = $utils_root->child('css');
-  $css_shared       = $css_dir->child('book-shared.css');
-  $css_pdf          = $css_dir->child('book-pdf.css');
-  $utils_images_dir = $utils_root->child('images');
-
+method validate_resources() {
   for my $css ($css_shared, $css_pdf) {
     die "Missing CSS file: $css\n" unless $css->is_file;
   }
 
   say "UTILS:";
   say "  Root       : $utils_root";
-  say "  CSS dir    : $css_dir";
+  say "  CSS dir    : " . $utils_root->child('css');
   say "  CSS shared : $css_shared";
   say "  CSS pdf    : $css_pdf";
   say "  Images dir : $utils_images_dir";
@@ -127,17 +121,11 @@ method load_metadata() {
 }
 
 method setup_directories() {
-  $build_dir = path('build');
-  $built_dir = path('built');
-
   if ($build_dir->exists) {
     $build_dir->remove_tree({ safe => 0 });
   }
   $build_dir->mkpath;
   $built_dir->mkpath;
-  
-  # Initialize Template Toolkit
-  $tt = Template->new({}) or die Template->error;
 }
 
 method build_template_context() {
@@ -432,18 +420,18 @@ Boolean flag to keep the build directory after completion. Defaults to 0 (false)
 Main driver method that orchestrates the entire book build process by calling other methods in sequence.
 Returns 0 on success, dies on failure.
 
-=head2 locate_resources()
+=head2 validate_resources()
 
-Locates and validates perlschool-utils resources (CSS files, shared images directory).
+Validates that required perlschool-utils resources (CSS files) exist and displays resource paths.
 
 =head2 load_metadata()
 
 Loads and validates the book metadata from the YAML file, extracting title, manuscript, cover image, and other metadata.
+Also reads the manuscript text into memory.
 
 =head2 setup_directories()
 
 Creates and prepares the build and built directories, removing any existing build directory.
-Also initializes the Template Toolkit instance.
 
 =head2 build_template_context()
 
