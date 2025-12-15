@@ -23,7 +23,12 @@ field $css_pdf          = $utils_root->child('css')->child('book-pdf.css');
 field $utils_images_dir = $utils_root->child('images');
 
 # Metadata (loaded from file)
-field $meta = LoadFile($metadata_file) or die "Failed to load $metadata_file\n";
+field $meta = do {
+  my $m = LoadFile($metadata_file) or die "Failed to load $metadata_file\n";
+  # Set default process locale if not already set
+  $ENV{LANG} //= 'en_GB.UTF-8';
+  $m;
+};
 
 # Effective language for this book (BCP-47)
 field $effective_lang = $meta->{lang} // 'en-GB';
@@ -50,7 +55,9 @@ field $build_dir = path('build');
 field $built_dir = path('built');
 
 # Template Toolkit instance
-field $tt = Template->new({}) or die Template->error;
+field $tt = do {
+  Template->new({}) or die Template->error;
+};
 
 method run() {
   $self->validate_resources();
@@ -82,9 +89,6 @@ method validate_resources() {
   for my $css ($css_shared, $css_pdf) {
     die "Missing CSS file: $css\n" unless $css->is_file;
   }
-
-  # Set default process locale if not already set
-  $ENV{LANG} //= 'en_GB.UTF-8';
 
   say "UTILS:";
   say "  Root       : $utils_root";
