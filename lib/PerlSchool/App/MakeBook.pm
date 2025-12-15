@@ -72,8 +72,9 @@ method run() {
 method validate_resources() {
   # Initialize resource paths
   $utils_root       = path($RealBin)->parent->absolute;
-  $css_shared       = $utils_root->child('css')->child('book-shared.css');
-  $css_pdf          = $utils_root->child('css')->child('book-pdf.css');
+  my $css_dir       = $utils_root->child('css');
+  $css_shared       = $css_dir->child('book-shared.css');
+  $css_pdf          = $css_dir->child('book-pdf.css');
   $utils_images_dir = $utils_root->child('images');
   
   for my $css ($css_shared, $css_pdf) {
@@ -82,7 +83,7 @@ method validate_resources() {
 
   say "UTILS:";
   say "  Root       : $utils_root";
-  say "  CSS dir    : " . $utils_root->child('css');
+  say "  CSS dir    : $css_dir";
   say "  CSS shared : $css_shared";
   say "  CSS pdf    : $css_pdf";
   say "  Images dir : $utils_images_dir";
