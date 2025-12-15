@@ -1,10 +1,9 @@
 use v5.38;
+use warnings;
 use experimental 'class';
+use experimental 'signatures';
 
 class PerlSchool::App::MakeBook;
-
-use warnings;
-use experimental 'signatures';
 
 use Path::Tiny;
 use YAML::XS qw(LoadFile);
@@ -163,7 +162,7 @@ Published by [% publisher %].
 [% END %]
 
 [% IF publisher AND publisher_web -%]
-[[% publisher%]](https://[% publisher_web %]/)
+[[% publisher %]](https://[% publisher_web %]/)
 [% END -%]
 
 No part of this publication may be reproduced, stored in a retrieval system, or

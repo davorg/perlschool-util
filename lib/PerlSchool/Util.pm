@@ -31,6 +31,8 @@ sub slugify ($s) {
 }
 
 # Convert a file path to a file:// URI
+# Note: Path::Tiny is loaded here on-demand rather than at module load time
+# to avoid dependency issues when only using other utility functions
 sub file_uri ($path) {
   require Path::Tiny;
   my $abs = Path::Tiny::path($path)->absolute->stringify;
