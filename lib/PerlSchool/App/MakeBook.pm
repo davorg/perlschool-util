@@ -59,9 +59,22 @@ field $tt = do {
   Template->new({}) or die Template->error;
 };
 
+# Template context (used for rendering templates)
+field $template_context = {
+  %$meta,
+  author           => $author,
+  subtitle         => $subtitle,
+  publisher        => $publisher,
+  isbn             => $isbn,
+  copyright_year   => $copyright_year,
+  copyright_holder => $copyright_holder,
+  cover_image      => $cover,
+  lang             => $effective_lang,
+};
+
 method run() {
   $self->validate_resources();
-  $self->load_metadata();
+  $self->display_metadata();
   $self->setup_directories();
   
   my $pdf_front_html = $self->render_pdf_front_matter();
@@ -98,7 +111,7 @@ method validate_resources() {
   say "  Images dir : $utils_images_dir";
 }
 
-method load_metadata() {
+method display_metadata() {
   # Display loaded metadata
   say "METADATA:";
   say "  Manuscript : $manuscript";
@@ -114,20 +127,6 @@ method setup_directories() {
   }
   $build_dir->mkpath;
   $built_dir->mkpath;
-}
-
-method build_template_context() {
-  return (
-    %$meta,
-    author           => $author,
-    subtitle         => $subtitle,
-    publisher        => $publisher,
-    isbn             => $isbn,
-    copyright_year   => $copyright_year,
-    copyright_holder => $copyright_holder,
-    cover_image      => $cover,
-    lang             => $effective_lang,
-  );
 }
 
 method render_pdf_front_matter() {
@@ -183,10 +182,8 @@ method render_pdf_front_matter() {
 </section>
 PDF_TMPL
 
-  my %ctx = $self->build_template_context();
-
   my $pdf_front_html;
-  $tt->process(\$pdf_front_tmpl, \%ctx, \$pdf_front_html)
+  $tt->process(\$pdf_front_tmpl, $template_context, \$pdf_front_html)
     or die "Template error (PDF front matter): " . $tt->error . "\n";
 
   return $pdf_front_html;
@@ -230,10 +227,8 @@ Set in Markdown and typeset to PDF/ePub with Pandoc and wkhtmltopdf.
 
 EPUB_TMPL
 
-  my %ctx = $self->build_template_context();
-
   my $epub_front_md;
-  $tt->process(\$epub_front_tmpl, \%ctx, \$epub_front_md)
+  $tt->process(\$epub_front_tmpl, $template_context, \$epub_front_md)
     or die "Template error (EPUB front matter): " . $tt->error . "\n";
 
   # For EPUB we still build a Markdown file: copyright page + manuscript
@@ -419,6 +414,8 @@ Most fields are initialized automatically using field initialization expressions
 
 =item * Template Toolkit ($tt) - initialized with defaults
 
+=item * Template context ($template_context) - hash of template variables for rendering
+
 =back
 
 =head1 METHODS
@@ -433,7 +430,7 @@ Returns 0 on success, dies on failure.
 Validates that required perlschool-utils resources (CSS files) exist.
 Resource paths are already initialized via field expressions.
 
-=head2 load_metadata()
+=head2 display_metadata()
 
 Displays the loaded metadata information.
 Metadata is already loaded and validated via field initialization expressions.
@@ -441,11 +438,6 @@ Metadata is already loaded and validated via field initialization expressions.
 =head2 setup_directories()
 
 Creates and prepares the build and built directories, removing any existing build directory.
-
-=head2 build_template_context()
-
-Helper method that constructs the template context hash with all metadata fields.
-Returns a hash of template variables.
 
 =head2 render_pdf_front_matter()
 
