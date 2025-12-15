@@ -27,6 +27,7 @@ field $meta;
 field $effective_lang;
 field $title;
 field $manuscript;
+field $manuscript_text;
 field $cover;
 field $output_base;
 field $author;
@@ -117,6 +118,9 @@ method load_metadata() {
   say "  Title      : $title";
   say "  Cover      : $cover";
   say "  Output base: $output_base";
+  
+  # Read manuscript text once
+  $manuscript_text = path($manuscript)->slurp_utf8;
 }
 
 method setup_directories() {
@@ -256,9 +260,6 @@ EPUB_TMPL
   my $epub_front_md;
   $tt->process(\$epub_front_tmpl, \%ctx, \$epub_front_md)
     or die "Template error (EPUB front matter): " . $tt->error . "\n";
-
-  # Read manuscript and combine with front matter
-  my $manuscript_text = path($manuscript)->slurp_utf8;
 
   # For EPUB we still build a Markdown file: copyright page + manuscript
   my $epub_input = $build_dir->child('epub_input.md');
