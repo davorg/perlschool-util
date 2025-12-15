@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 use v5.38;
 use warnings;
-use experimental 'class';
 
 use Getopt::Long qw(GetOptions);
 use FindBin qw($RealBin);

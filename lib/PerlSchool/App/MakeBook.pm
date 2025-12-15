@@ -1,7 +1,6 @@
 use v5.38;
 use warnings;
-use experimental 'class';
-use experimental 'signatures';
+use experimental qw(class signatures);
 
 class PerlSchool::App::MakeBook;
 
