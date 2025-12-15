@@ -16,16 +16,61 @@ use PerlSchool::Util qw(run slugify file_uri);
 field $metadata_file :param = 'book-metadata.yml';
 field $keep_build    :param = 0;
 
-method run() {
-  # ------------------------------------------------------------
-  # Locate perlschool-utils resources (CSS, shared images)
-  # ------------------------------------------------------------
+# Resource paths
+field $utils_root;
+field $css_shared;
+field $css_pdf;
+field $utils_images_dir;
 
-  my $utils_root       = path($RealBin)->parent->absolute;
-  my $css_dir          = $utils_root->child('css');
-  my $css_shared       = $css_dir->child('book-shared.css');
-  my $css_pdf          = $css_dir->child('book-pdf.css');
-  my $utils_images_dir = $utils_root->child('images');
+# Metadata fields
+field $meta;
+field $effective_lang;
+field $title;
+field $manuscript;
+field $cover;
+field $output_base;
+field $author;
+field $subtitle;
+field $publisher;
+field $isbn;
+field $copyright_year;
+field $copyright_holder;
+
+# Directory fields
+field $build_dir;
+field $built_dir;
+
+method run() {
+  $self->locate_resources();
+  $self->load_metadata();
+  $self->setup_directories();
+  
+  my $pdf_front_html = $self->render_pdf_front_matter();
+  my $epub_input = $self->render_epub_front_matter();
+  
+  $self->prepare_images();
+  
+  my $body_inner = $self->build_body_html();
+  my $html_output = $self->stitch_html($pdf_front_html, $body_inner);
+  
+  my $pdf_file = $self->build_pdf($html_output);
+  my $epub_file = $self->build_epub($epub_input);
+  
+  $self->cleanup();
+  
+  say "Built:";
+  say "  " . $pdf_file->stringify;
+  say "  " . $epub_file->stringify;
+  
+  return 0;
+}
+
+method locate_resources() {
+  $utils_root       = path($RealBin)->parent->absolute;
+  my $css_dir       = $utils_root->child('css');
+  $css_shared       = $css_dir->child('book-shared.css');
+  $css_pdf          = $css_dir->child('book-pdf.css');
+  $utils_images_dir = $utils_root->child('images');
 
   for my $css ($css_shared, $css_pdf) {
     die "Missing CSS file: $css\n" unless $css->is_file;
@@ -37,12 +82,10 @@ method run() {
   say "  CSS shared : $css_shared";
   say "  CSS pdf    : $css_pdf";
   say "  Images dir : $utils_images_dir";
+}
 
-  # ------------------------------------------------------------
-  # Load metadata
-  # ------------------------------------------------------------
-
-  my $meta = LoadFile($metadata_file)
+method load_metadata() {
+  $meta = LoadFile($metadata_file)
     or die "Failed to load $metadata_file\n";
 
   for my $required (qw/title manuscript cover_image/) {
@@ -51,47 +94,43 @@ method run() {
   }
 
   # Effective language for this book (BCP-47)
-  my $effective_lang = $meta->{lang} // 'en-GB';
+  $effective_lang = $meta->{lang} // 'en-GB';
 
   # Default process locale if not already set
   $ENV{LANG} //= 'en_GB.UTF-8';
 
-  my $title      = $meta->{title};
-  my $manuscript = $meta->{manuscript};
-  my $cover      = $meta->{cover_image};
+  $title      = $meta->{title};
+  $manuscript = $meta->{manuscript};
+  $cover      = $meta->{cover_image};
 
-  my $output_base = slugify($title);
+  $output_base = slugify($title);
 
-  my $author           = $meta->{author}           // '';
-  my $subtitle         = $meta->{subtitle}         // '';
-  my $publisher        = $meta->{publisher}        // '';
-  my $isbn             = $meta->{isbn}             // '';
-  my $copyright_year   = $meta->{copyright_year}   // '';
-  my $copyright_holder = $meta->{copyright_holder} // $author // $publisher // '';
+  $author           = $meta->{author}           // '';
+  $subtitle         = $meta->{subtitle}         // '';
+  $publisher        = $meta->{publisher}        // '';
+  $isbn             = $meta->{isbn}             // '';
+  $copyright_year   = $meta->{copyright_year}   // '';
+  $copyright_holder = $meta->{copyright_holder} // $author // $publisher // '';
 
   say "METADATA:";
   say "  Manuscript : $manuscript";
   say "  Title      : $title";
   say "  Cover      : $cover";
   say "  Output base: $output_base";
+}
 
-  # ------------------------------------------------------------
-  # Directories
-  # ------------------------------------------------------------
-
-  my $build_dir = path('build');
-  my $built_dir = path('built');
+method setup_directories() {
+  $build_dir = path('build');
+  $built_dir = path('built');
 
   if ($build_dir->exists) {
     $build_dir->remove_tree({ safe => 0 });
   }
   $build_dir->mkpath;
   $built_dir->mkpath;
+}
 
-  # ------------------------------------------------------------
-  # Template Toolkit setup
-  # ------------------------------------------------------------
-
+method render_pdf_front_matter() {
   my $tt = Template->new({}) or die Template->error;
 
   # FRONT MATTER FOR PDF (HTML fragment, not Markdown)
@@ -145,6 +184,28 @@ method run() {
 </section>
 PDF_TMPL
 
+  my %ctx = (
+    %$meta,
+    author           => $author,
+    subtitle         => $subtitle,
+    publisher        => $publisher,
+    isbn             => $isbn,
+    copyright_year   => $copyright_year,
+    copyright_holder => $copyright_holder,
+    cover_image      => $cover,
+    lang             => $effective_lang,
+  );
+
+  my $pdf_front_html;
+  $tt->process(\$pdf_front_tmpl, \%ctx, \$pdf_front_html)
+    or die "Template error (PDF front matter): " . $tt->error . "\n";
+
+  return $pdf_front_html;
+}
+
+method render_epub_front_matter() {
+  my $tt = Template->new({}) or die Template->error;
+
   # EPUB still uses a simple Markdown copyright page
   my $epub_front_tmpl = <<'EPUB_TMPL';
 [%# EPUB front matter: copyright page only %]
@@ -180,12 +241,6 @@ Set in Markdown and typeset to PDF/ePub with Pandoc and wkhtmltopdf.
 
 EPUB_TMPL
 
-  # ------------------------------------------------------------
-  # Render front matter + read manuscript
-  # ------------------------------------------------------------
-
-  my $manuscript_text = path($manuscript)->slurp_utf8;
-
   my %ctx = (
     %$meta,
     author           => $author,
@@ -198,22 +253,21 @@ EPUB_TMPL
     lang             => $effective_lang,
   );
 
-  my $pdf_front_html;
-  $tt->process(\$pdf_front_tmpl, \%ctx, \$pdf_front_html)
-    or die "Template error (PDF front matter): " . $tt->error . "\n";
-
   my $epub_front_md;
   $tt->process(\$epub_front_tmpl, \%ctx, \$epub_front_md)
     or die "Template error (EPUB front matter): " . $tt->error . "\n";
+
+  # Read manuscript and combine with front matter
+  my $manuscript_text = path($manuscript)->slurp_utf8;
 
   # For EPUB we still build a Markdown file: copyright page + manuscript
   my $epub_input = $build_dir->child('epub_input.md');
   $epub_input->spew_utf8($epub_front_md, "\n\n", $manuscript_text);
 
-  # ------------------------------------------------------------
-  # Prepare resources for wkhtmltopdf (images)
-  # ------------------------------------------------------------
+  return $epub_input;
+}
 
+method prepare_images() {
   my $book_images_dir  = path('images');
   my $build_images_dir = $build_dir->child('images');
 
@@ -233,13 +287,9 @@ EPUB_TMPL
         or die "Failed to copy $utils_logo to $build_logo: $!\n";
     }
   }
+}
 
-  # ------------------------------------------------------------
-  # Build BODY+ToC HTML (chapters only) via pandoc
-  #   - No metadata file => no title block generated
-  #   - We keep the ToC
-  # ------------------------------------------------------------
-
+method build_body_html() {
   my $body_html_path = $build_dir->child('body.html');
 
   run(
@@ -259,12 +309,11 @@ EPUB_TMPL
   # Extract just the contents of <body>...</body>
   $body_full =~ s{.*?<body[^>]*>}{}s;
   $body_full =~ s{</body>.*}{}s;
-  my $body_inner = $body_full;
+  
+  return $body_full;
+}
 
-  # ------------------------------------------------------------
-  # Stitch front matter HTML + body HTML into final book.html
-  # ------------------------------------------------------------
-
+method stitch_html($pdf_front_html, $body_inner) {
   my $html_output = $build_dir->child('book.html');
 
   my $css_shared_uri = file_uri($css_shared);
@@ -288,11 +337,11 @@ $body_inner
 HTML
 
   $html_output->spew_utf8($final_html);
+  
+  return $html_output;
+}
 
-  # ------------------------------------------------------------
-  # Build PDF via wkhtmltopdf
-  # ------------------------------------------------------------
-
+method build_pdf($html_output) {
   my $pdf_file = $built_dir->child("$output_base.pdf");
 
   run(
@@ -306,11 +355,11 @@ HTML
     $html_output->stringify,
     $pdf_file->stringify,
   );
+  
+  return $pdf_file;
+}
 
-  # ------------------------------------------------------------
-  # Build EPUB via pandoc (mostly unchanged)
-  # ------------------------------------------------------------
-
+method build_epub($epub_input) {
   my $epub_file = $built_dir->child("$output_base.epub");
 
   my @epub_resource_paths = (
@@ -331,21 +380,15 @@ HTML
     ( $meta->{lang} ? () : ('--metadata', "lang=$effective_lang") ),
     '-o', $epub_file->stringify,
   );
+  
+  return $epub_file;
+}
 
-  # ------------------------------------------------------------
-  # Tidy up
-  # ------------------------------------------------------------
-
+method cleanup() {
   unless ($keep_build) {
     say "Removing build directory...";
     $build_dir->remove_tree({ safe => 0 });
   }
-
-  say "Built:";
-  say "  " . $pdf_file->stringify;
-  say "  " . $epub_file->stringify;
-
-  return 0;
 }
 
 1;
@@ -386,22 +429,57 @@ Boolean flag to keep the build directory after completion. Defaults to 0 (false)
 
 =head2 run()
 
-Execute the book build process. This method:
-
-=over 4
-
-=item * Locates CSS and image resources
-
-=item * Loads and validates metadata
-
-=item * Generates front matter (cover, title, copyright pages)
-
-=item * Converts manuscript to HTML and builds PDF via wkhtmltopdf
-
-=item * Builds EPUB via pandoc
-
-=back
-
+Main driver method that orchestrates the entire book build process by calling other methods in sequence.
 Returns 0 on success, dies on failure.
+
+=head2 locate_resources()
+
+Locates and validates perlschool-utils resources (CSS files, shared images directory).
+
+=head2 load_metadata()
+
+Loads and validates the book metadata from the YAML file, extracting title, manuscript, cover image, and other metadata.
+
+=head2 setup_directories()
+
+Creates and prepares the build and built directories, removing any existing build directory.
+
+=head2 render_pdf_front_matter()
+
+Renders the PDF front matter HTML using Template Toolkit, including cover page, half-title, title page, and copyright page.
+Returns the rendered HTML string.
+
+=head2 render_epub_front_matter()
+
+Renders the EPUB front matter as Markdown, combines it with the manuscript, and writes to an input file for pandoc.
+Returns the path to the combined EPUB input file.
+
+=head2 prepare_images()
+
+Copies book images and perlschool logo to the build directory for inclusion in the final output.
+
+=head2 build_body_html()
+
+Converts the manuscript to HTML using pandoc, extracting the body content.
+Returns the body HTML as a string.
+
+=head2 stitch_html($pdf_front_html, $body_inner)
+
+Combines the PDF front matter HTML and body HTML into a complete HTML document with CSS references.
+Returns the path to the stitched HTML file.
+
+=head2 build_pdf($html_output)
+
+Generates the PDF file from the HTML using wkhtmltopdf.
+Returns the path to the generated PDF file.
+
+=head2 build_epub($epub_input)
+
+Generates the EPUB file from the combined Markdown using pandoc.
+Returns the path to the generated EPUB file.
+
+=head2 cleanup()
+
+Removes the build directory unless keep_build is enabled.
 
 =cut
