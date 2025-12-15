@@ -1,99 +1,14 @@
 #!/usr/bin/env perl
-use v5.32;
+use v5.38;
 use warnings;
-use experimental 'signatures';
 
-use Path::Tiny;
-use XML::LibXML;
+use FindBin qw($RealBin);
+use lib "$RealBin/../lib";
+use PerlSchool::App::LintMS;
 
-# Usage: bin/check_html_xhtml manuscript/*.md
-my @files = @ARGV ? @ARGV : die "Usage: $0 file1.md [file2.md ...]\n";
+my $app = PerlSchool::App::LintMS->new(
+  files => \@ARGV,
+);
 
-my $parser = XML::LibXML->new( recover => 0 );
-
-my $errors = 0;
-
-for my $file (@files) {
-  my $path    = path($file);
-  my $lineno  = 0;
-  my $in_code = 0;
-
-  my @chunk;
-  my $chunk_start;
-
-  my $flush_chunk = sub {
-    return unless @chunk;
-
-    my $chunk_text  = join('', @chunk);
-
-    # Extract all <tag ...> bits; ignore text between them.
-    my @tags = ($chunk_text =~ m{<[^>]+>}g);
-    @chunk = ();
-
-    return unless @tags; # no HTML here, nothing to check
-
-    my $snippet = "<root>\n" . (join "\n", @tags) . "\n</root>\n";
-
-    my $ok = eval {
-      $parser->load_xml( string => $snippet );
-      1;
-    };
-
-    if ( !$ok ) {
-      ++$errors;
-      my $err = $@ // 'Unknown XML error';
-      chomp $err;
-
-      warn <<"EOF";
-$file:$chunk_start: Invalid XHTML-ish HTML chunk detected:
-  $err
-
-  (first line of chunk)
-    $chunk_text
-EOF
-    }
-  };
-
-  for my $line ($path->lines_utf8) {
-    ++$lineno;
-
-    # Toggle code-fence state (simple: treat any ``` as fence)
-    if ( $line =~ /^```/ ) {
-      # Leaving normal text => flush any pending chunk
-      if ( !$in_code ) {
-        $flush_chunk->();
-      }
-      $in_code = !$in_code;
-      next;
-    }
-
-    if ($in_code) {
-      # Inside fenced code: ignore completely
-      next;
-    }
-
-    # Blank line => end of chunk
-    if ( $line =~ /^\s*$/ ) {
-      $flush_chunk->();
-      next;
-    }
-
-    # Non-blank, non-code line: add to current chunk
-    if ( !@chunk ) {
-      $chunk_start = $lineno;
-    }
-    push @chunk, $line;
-  }
-
-    # EOF: flush last chunk
-    $flush_chunk->();
-}
-
-if ($errors) {
-    warn "\nFound $errors invalid HTML/XHTML chunk(s).\n";
-    exit 1;
-}
-
-say "All HTML chunks look XML-well-formed enough.";
-exit 0;
+exit $app->run_app();
 
