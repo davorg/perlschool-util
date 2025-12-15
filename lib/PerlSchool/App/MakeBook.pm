@@ -16,11 +16,11 @@ use PerlSchool::Util qw(run slugify file_uri);
 field $metadata_file :param = 'book-metadata.yml';
 field $keep_build    :param = 0;
 
-# Resource paths (with computed defaults)
-field $utils_root       = path($RealBin)->parent->absolute;
-field $css_shared       = $utils_root->child('css')->child('book-shared.css');
-field $css_pdf          = $utils_root->child('css')->child('book-pdf.css');
-field $utils_images_dir = $utils_root->child('images');
+# Resource paths (computed in validate_resources)
+field $utils_root;
+field $css_shared;
+field $css_pdf;
+field $utils_images_dir;
 
 # Metadata fields
 field $meta;
@@ -37,12 +37,12 @@ field $isbn;
 field $copyright_year;
 field $copyright_holder;
 
-# Directory fields (with defaults)
+# Directory fields (with simple defaults)
 field $build_dir = path('build');
 field $built_dir = path('built');
 
-# Template Toolkit instance (with default)
-field $tt = Template->new({}) or die Template->error;
+# Template Toolkit instance (initialized in setup_directories)
+field $tt;
 
 method run() {
   $self->validate_resources();
@@ -70,6 +70,12 @@ method run() {
 }
 
 method validate_resources() {
+  # Initialize resource paths
+  $utils_root       = path($RealBin)->parent->absolute;
+  $css_shared       = $utils_root->child('css')->child('book-shared.css');
+  $css_pdf          = $utils_root->child('css')->child('book-pdf.css');
+  $utils_images_dir = $utils_root->child('images');
+  
   for my $css ($css_shared, $css_pdf) {
     die "Missing CSS file: $css\n" unless $css->is_file;
   }
@@ -126,6 +132,9 @@ method setup_directories() {
   }
   $build_dir->mkpath;
   $built_dir->mkpath;
+  
+  # Initialize Template Toolkit
+  $tt = Template->new({}) or die Template->error;
 }
 
 method build_template_context() {
@@ -422,7 +431,8 @@ Returns 0 on success, dies on failure.
 
 =head2 validate_resources()
 
-Validates that required perlschool-utils resources (CSS files) exist and displays resource paths.
+Initializes and validates perlschool-utils resources (CSS files, shared images directory).
+Computes resource paths and checks that required CSS files exist.
 
 =head2 load_metadata()
 
@@ -432,6 +442,7 @@ Also reads the manuscript text into memory.
 =head2 setup_directories()
 
 Creates and prepares the build and built directories, removing any existing build directory.
+Also initializes the Template Toolkit instance.
 
 =head2 build_template_context()
 
