@@ -16,33 +16,41 @@ use PerlSchool::Util qw(run slugify file_uri);
 field $metadata_file :param = 'book-metadata.yml';
 field $keep_build    :param = 0;
 
-# Resource paths (computed in validate_resources)
-field $utils_root;
-field $css_shared;
-field $css_pdf;
-field $utils_images_dir;
+# Resource paths (initialized with expressions)
+field $utils_root       = path($RealBin)->parent->absolute;
+field $css_shared       = $utils_root->child('css')->child('book-shared.css');
+field $css_pdf          = $utils_root->child('css')->child('book-pdf.css');
+field $utils_images_dir = $utils_root->child('images');
 
-# Metadata fields
-field $meta;
-field $effective_lang;
-field $title;
-field $manuscript;
-field $manuscript_text;
-field $cover;
-field $output_base;
-field $author;
-field $subtitle;
-field $publisher;
-field $isbn;
-field $copyright_year;
-field $copyright_holder;
+# Metadata (loaded from file)
+field $meta = LoadFile($metadata_file) or die "Failed to load $metadata_file\n";
 
-# Directory fields (with simple defaults)
+# Effective language for this book (BCP-47)
+field $effective_lang = $meta->{lang} // 'en-GB';
+
+# Core metadata fields (extracted from $meta)
+field $title      = $meta->{title}      // die "Missing required key 'title' in $metadata_file\n";
+field $manuscript = $meta->{manuscript} // die "Missing required key 'manuscript' in $metadata_file\n";
+field $cover      = $meta->{cover_image} // die "Missing required key 'cover_image' in $metadata_file\n";
+
+# Derived and optional metadata fields
+field $output_base       = slugify($title);
+field $author           = $meta->{author}           // '';
+field $subtitle         = $meta->{subtitle}         // '';
+field $publisher        = $meta->{publisher}        // '';
+field $isbn             = $meta->{isbn}             // '';
+field $copyright_year   = $meta->{copyright_year}   // '';
+field $copyright_holder = $meta->{copyright_holder} // $author // $publisher // '';
+
+# Manuscript text (loaded once)
+field $manuscript_text = path($manuscript)->slurp_utf8;
+
+# Directory fields (with defaults)
 field $build_dir = path('build');
 field $built_dir = path('built');
 
-# Template Toolkit instance (initialized in setup_directories)
-field $tt;
+# Template Toolkit instance
+field $tt = Template->new({}) or die Template->error;
 
 method run() {
   $self->validate_resources();
@@ -70,72 +78,38 @@ method run() {
 }
 
 method validate_resources() {
-  # Initialize resource paths
-  $utils_root       = path($RealBin)->parent->absolute;
-  my $css_dir       = $utils_root->child('css');
-  $css_shared       = $css_dir->child('book-shared.css');
-  $css_pdf          = $css_dir->child('book-pdf.css');
-  $utils_images_dir = $utils_root->child('images');
-  
+  # Validate required CSS files exist
   for my $css ($css_shared, $css_pdf) {
     die "Missing CSS file: $css\n" unless $css->is_file;
   }
 
+  # Set default process locale if not already set
+  $ENV{LANG} //= 'en_GB.UTF-8';
+
   say "UTILS:";
   say "  Root       : $utils_root";
-  say "  CSS dir    : $css_dir";
+  say "  CSS dir    : " . $utils_root->child('css');
   say "  CSS shared : $css_shared";
   say "  CSS pdf    : $css_pdf";
   say "  Images dir : $utils_images_dir";
 }
 
 method load_metadata() {
-  $meta = LoadFile($metadata_file)
-    or die "Failed to load $metadata_file\n";
-
-  for my $required (qw/title manuscript cover_image/) {
-    die "Missing required key '$required' in $metadata_file\n"
-      unless defined $meta->{$required} && length $meta->{$required};
-  }
-
-  # Effective language for this book (BCP-47)
-  $effective_lang = $meta->{lang} // 'en-GB';
-
-  # Default process locale if not already set
-  $ENV{LANG} //= 'en_GB.UTF-8';
-
-  $title      = $meta->{title};
-  $manuscript = $meta->{manuscript};
-  $cover      = $meta->{cover_image};
-
-  $output_base = slugify($title);
-
-  $author           = $meta->{author}           // '';
-  $subtitle         = $meta->{subtitle}         // '';
-  $publisher        = $meta->{publisher}        // '';
-  $isbn             = $meta->{isbn}             // '';
-  $copyright_year   = $meta->{copyright_year}   // '';
-  $copyright_holder = $meta->{copyright_holder} // $author // $publisher // '';
-
+  # Display loaded metadata
   say "METADATA:";
   say "  Manuscript : $manuscript";
   say "  Title      : $title";
   say "  Cover      : $cover";
   say "  Output base: $output_base";
-  
-  # Read manuscript text once
-  $manuscript_text = path($manuscript)->slurp_utf8;
 }
 
 method setup_directories() {
+  # Clean and create directories
   if ($build_dir->exists) {
     $build_dir->remove_tree({ safe => 0 });
   }
   $build_dir->mkpath;
   $built_dir->mkpath;
-  
-  # Initialize Template Toolkit
-  $tt = Template->new({}) or die Template->error;
 }
 
 method build_template_context() {
@@ -419,9 +393,29 @@ Markdown manuscripts into professionally formatted PDF and EPUB files.
 
 Path to the YAML metadata file. Defaults to 'book-metadata.yml'.
 
+All other fields are initialized automatically from this file during object construction.
+
 =head2 keep_build
 
 Boolean flag to keep the build directory after completion. Defaults to 0 (false).
+
+=head1 FIELDS
+
+Most fields are initialized automatically using field initialization expressions:
+
+=over 4
+
+=item * Resource paths ($utils_root, $css_shared, $css_pdf, $utils_images_dir) - computed from $RealBin
+
+=item * Metadata ($meta, $title, $manuscript, $cover, etc.) - loaded from metadata_file
+
+=item * Manuscript text ($manuscript_text) - read from manuscript file
+
+=item * Directories ($build_dir, $built_dir) - default paths
+
+=item * Template Toolkit ($tt) - initialized with defaults
+
+=back
 
 =head1 METHODS
 
@@ -432,18 +426,17 @@ Returns 0 on success, dies on failure.
 
 =head2 validate_resources()
 
-Initializes and validates perlschool-utils resources (CSS files, shared images directory).
-Computes resource paths and checks that required CSS files exist.
+Validates that required perlschool-utils resources (CSS files) exist.
+Resource paths are already initialized via field expressions.
 
 =head2 load_metadata()
 
-Loads and validates the book metadata from the YAML file, extracting title, manuscript, cover image, and other metadata.
-Also reads the manuscript text into memory.
+Displays the loaded metadata information.
+Metadata is already loaded and validated via field initialization expressions.
 
 =head2 setup_directories()
 
 Creates and prepares the build and built directories, removing any existing build directory.
-Also initializes the Template Toolkit instance.
 
 =head2 build_template_context()
 
