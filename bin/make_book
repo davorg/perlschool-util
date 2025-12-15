@@ -7,7 +7,7 @@ use Getopt::Long qw(GetOptions);
 use Path::Tiny;
 use YAML::XS qw(LoadFile);
 use Template;
-use FindBin qw($Bin);
+use FindBin qw($RealBin);
 use File::Copy::Recursive qw(dircopy);
 use File::Copy qw(copy);
 
@@ -59,7 +59,7 @@ sub file_uri ($path) {
 # Locate perlschool-utils resources (CSS, shared images)
 # ------------------------------------------------------------
 
-my $utils_root       = path($Bin)->parent->absolute;
+my $utils_root       = path($RealBin)->parent->absolute;
 my $css_dir          = $utils_root->child('css');
 my $css_shared       = $css_dir->child('book-shared.css');
 my $css_pdf          = $css_dir->child('book-pdf.css');
