@@ -41,6 +41,9 @@ field $copyright_holder;
 field $build_dir;
 field $built_dir;
 
+# Template Toolkit instance
+field $tt;
+
 method run() {
   $self->locate_resources();
   $self->load_metadata();
@@ -132,10 +135,26 @@ method setup_directories() {
   }
   $build_dir->mkpath;
   $built_dir->mkpath;
+  
+  # Initialize Template Toolkit
+  $tt = Template->new({}) or die Template->error;
+}
+
+method build_template_context() {
+  return (
+    %$meta,
+    author           => $author,
+    subtitle         => $subtitle,
+    publisher        => $publisher,
+    isbn             => $isbn,
+    copyright_year   => $copyright_year,
+    copyright_holder => $copyright_holder,
+    cover_image      => $cover,
+    lang             => $effective_lang,
+  );
 }
 
 method render_pdf_front_matter() {
-  my $tt = Template->new({}) or die Template->error;
 
   # FRONT MATTER FOR PDF (HTML fragment, not Markdown)
   my $pdf_front_tmpl = <<'PDF_TMPL';
@@ -188,17 +207,7 @@ method render_pdf_front_matter() {
 </section>
 PDF_TMPL
 
-  my %ctx = (
-    %$meta,
-    author           => $author,
-    subtitle         => $subtitle,
-    publisher        => $publisher,
-    isbn             => $isbn,
-    copyright_year   => $copyright_year,
-    copyright_holder => $copyright_holder,
-    cover_image      => $cover,
-    lang             => $effective_lang,
-  );
+  my %ctx = $self->build_template_context();
 
   my $pdf_front_html;
   $tt->process(\$pdf_front_tmpl, \%ctx, \$pdf_front_html)
@@ -245,17 +254,7 @@ Set in Markdown and typeset to PDF/ePub with Pandoc and wkhtmltopdf.
 
 EPUB_TMPL
 
-  my %ctx = (
-    %$meta,
-    author           => $author,
-    subtitle         => $subtitle,
-    publisher        => $publisher,
-    isbn             => $isbn,
-    copyright_year   => $copyright_year,
-    copyright_holder => $copyright_holder,
-    cover_image      => $cover,
-    lang             => $effective_lang,
-  );
+  my %ctx = $self->build_template_context();
 
   my $epub_front_md;
   $tt->process(\$epub_front_tmpl, \%ctx, \$epub_front_md)
@@ -444,6 +443,12 @@ Loads and validates the book metadata from the YAML file, extracting title, manu
 =head2 setup_directories()
 
 Creates and prepares the build and built directories, removing any existing build directory.
+Also initializes the Template Toolkit instance.
+
+=head2 build_template_context()
+
+Helper method that constructs the template context hash with all metadata fields.
+Returns a hash of template variables.
 
 =head2 render_pdf_front_matter()
 
@@ -453,7 +458,7 @@ Returns the rendered HTML string.
 =head2 render_epub_front_matter()
 
 Renders the EPUB front matter as Markdown, combines it with the manuscript, and writes to an input file for pandoc.
-Returns the path to the combined EPUB input file.
+Returns the Path::Tiny object for the combined EPUB input file.
 
 =head2 prepare_images()
 
@@ -467,17 +472,17 @@ Returns the body HTML as a string.
 =head2 stitch_html($pdf_front_html, $body_inner)
 
 Combines the PDF front matter HTML and body HTML into a complete HTML document with CSS references.
-Returns the path to the stitched HTML file.
+Returns the Path::Tiny object for the stitched HTML file.
 
 =head2 build_pdf($html_output)
 
 Generates the PDF file from the HTML using wkhtmltopdf.
-Returns the path to the generated PDF file.
+Returns the Path::Tiny object for the generated PDF file.
 
 =head2 build_epub($epub_input)
 
 Generates the EPUB file from the combined Markdown using pandoc.
-Returns the path to the generated EPUB file.
+Returns the Path::Tiny object for the generated EPUB file.
 
 =head2 cleanup()
 
