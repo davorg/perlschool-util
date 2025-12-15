@@ -30,4 +30,4 @@ my $app = PerlSchool::App::MakeBook->new(
   keep_build    => $keep_build,
 );
 
-exit $app->run();
+exit $app->run_app();

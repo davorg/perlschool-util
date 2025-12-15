@@ -71,7 +71,7 @@ field $template_context = {
   lang             => $effective_lang,
 };
 
-method run() {
+method run_app() {
   $self->validate_resources();
   $self->display_metadata();
   $self->setup_directories();
@@ -378,7 +378,7 @@ PerlSchool::App::MakeBook - Build PDF and EPUB books from Markdown manuscripts
         keep_build    => 0,
     );
     
-    $app->run();
+    $app->run_app();
 
 =head1 DESCRIPTION
 
@@ -419,7 +419,7 @@ Most fields are initialized automatically using field initialization expressions
 
 =head1 METHODS
 
-=head2 run()
+=head2 run_app()
 
 Main driver method that orchestrates the entire book build process by calling other methods in sequence.
 Returns 0 on success, dies on failure.
