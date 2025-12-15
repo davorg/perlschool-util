@@ -88,6 +88,12 @@ for my $required (qw/title manuscript cover_image/) {
     unless defined $meta->{$required} && length $meta->{$required};
 }
 
+# Effective language for this book (BCP-47)
+my $effective_lang = $meta->{lang} // 'en-GB';
+
+# Default process locale if not already set
+$ENV{LANG} //= 'en_GB.UTF-8';
+
 my $title      = $meta->{title};
 my $manuscript = $meta->{manuscript};
 my $cover      = $meta->{cover_image};
@@ -227,6 +233,7 @@ my %ctx = (
   copyright_year   => $copyright_year,
   copyright_holder => $copyright_holder,
   cover_image      => $cover,
+  lang             => $effective_lang,
 );
 
 my $pdf_front_html;
@@ -282,6 +289,7 @@ run(
   '--standalone',
   '--resource-path=.:images',
   '-o', $body_html_path->stringify,
+  ( $meta->{lang} ? () : ('--metadata', "lang=$effective_lang") ),
 );
 
 my $body_full = $body_html_path->slurp_utf8;
@@ -358,6 +366,7 @@ run(
   '--resource-path=' . join(':', @epub_resource_paths),
   '-c', $css_shared->stringify,
   "--epub-cover-image=$cover",
+  ( $meta->{lang} ? () : ('--metadata', "lang=$effective_lang") ),
   '-o', $epub_file->stringify,
 );
 
