@@ -19,7 +19,7 @@ field $chunk_start = 0;
 field $current_file = '';
 
 method run_app() {
-  my @files_to_check = @$files ? @$files : die "Usage: check_ms_html file1.md [file2.md ...]\n";
+  my @files_to_check = @$files ? @$files : die "Usage: lintms file1.md [file2.md ...]\n";
   
   for my $file (@files_to_check) {
     $self->process_file($file);
@@ -145,7 +145,7 @@ It extracts HTML tags from non-code sections and validates them for XML well-for
 
 =head2 files
 
-Array reference of file paths to check. Required parameter.
+Array reference of file paths to check. Defaults to an empty array reference.
 
 =head1 FIELDS
 
