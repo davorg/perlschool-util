@@ -108,12 +108,14 @@ method validate_html_chunk($chunk_text, @tags) {
     my $err = $@ // 'Unknown XML error';
     chomp $err;
     
+    my $first_line = (split /\n/, $chunk_text)[0] // $chunk_text;
+    
     warn <<"EOF";
 $current_file:$chunk_start: Invalid XHTML-ish HTML chunk detected:
   $err
 
   (first line of chunk)
-    $chunk_text
+    $first_line
 EOF
   }
 }
