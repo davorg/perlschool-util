@@ -19,9 +19,9 @@ field $chunk_start = 0;
 field $current_file = '';
 
 method run_app() {
-  my @files_to_check = @$files ? @$files : die "Usage: lintms file1.md [file2.md ...]\n";
+  die "No files provided\n" unless @$files;
   
-  for my $file (@files_to_check) {
+  for my $file (@$files) {
     $self->process_file($file);
   }
   
