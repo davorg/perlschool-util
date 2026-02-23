@@ -66,6 +66,20 @@ body {
   page: front-matter;
 }
 
+/* The half-title page must end with break-after: recto so that the title-page
+   starts on the next right-hand (odd) page.  This inserts a blank verso page
+   between them, giving the traditional print layout:
+     p.1  Half title  (recto)
+     p.2  [blank]     (verso)
+     p.3  Title page  (recto)
+     p.4  Copyright   (verso)
+     p.5+ TOC         (recto)
+   book-shared.css has break-after: page for .half-title (used by EPUB);
+   this rule overrides it for the KDP PDF. */
+.half-title {
+  break-after: recto;
+}
+
 @page front-matter {
   @top-left    { content: none; }
   @top-right   { content: none; }
