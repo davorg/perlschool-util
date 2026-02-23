@@ -1,6 +1,7 @@
 /* Base text */
 body {
-  font-family: "Noto Serif", "Georgia", "Times New Roman", serif;
+  font-family: "Noto Serif", "Georgia", "Times New Roman",
+               "Noto Sans Symbols 2", "Noto Sans Symbols", serif;
   line-height: 1.4;
   font-size: 12.5pt;
 }

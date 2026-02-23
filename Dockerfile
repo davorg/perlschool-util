@@ -20,6 +20,7 @@ RUN apt-get update && \
       pandoc \
       wkhtmltopdf \
       python3-weasyprint \
+      fonts-noto-extra \
       default-jre-headless \
       curl \
       unzip \
