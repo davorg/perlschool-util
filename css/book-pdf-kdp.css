@@ -1,0 +1,157 @@
+/* KDP / BookBub hard-copy PDF
+   Trim size: 7" × 9" (17.78 cm × 22.86 cm)
+   This is the closest standard Amazon KDP trim size to the target 18 cm × 23 cm.
+
+   @page rules are used by WeasyPrint (and other CSS paged-media renderers).
+   wkhtmltopdf ignores them, but respects the --page-width / --page-height /
+   --margin-* flags that make_book passes on the command line when --kdp is set.
+
+   Body font size is set slightly smaller than book-shared.css's 12.5 pt base
+   (11.5 pt ≈ 8% smaller) because WeasyPrint renders pt sizes at a higher
+   physical density than wkhtmltopdf on a 7" × 9" trim. Adjust here as needed. */
+
+/* KDP body font — slightly smaller than the 12.5 pt base in book-shared.css */
+body {
+  font-size: 11.5pt;
+}
+
+@page {
+  size: 178mm 229mm; /* 7" × 9" */
+  margin-top:    25mm;
+  margin-bottom: 25mm;
+}
+
+/* Mirrored margins: larger inside (gutter) on each page type.
+   Running page headers and outside-corner page numbers are also defined here. */
+@page :left {
+  margin-left:  20mm; /* outside */
+  margin-right: 30mm; /* gutter  */
+
+  /* Book title left-justified on left-hand (verso) pages (WeasyPrint) */
+  @top-left {
+    content: string(book-title);
+    font-size: 9pt;
+    font-style: italic;
+  }
+  /* Page number on the outside (left) corner */
+  @bottom-left {
+    content: counter(page);
+    font-size: 9pt;
+  }
+}
+
+@page :right {
+  margin-left:  30mm; /* gutter  */
+  margin-right: 20mm; /* outside */
+
+  /* Chapter title right-justified on right-hand (recto) pages (WeasyPrint) */
+  @top-right {
+    content: string(chapter-title, start);
+    font-size: 9pt;
+    font-style: italic;
+  }
+  /* Page number on the outside (right) corner */
+  @bottom-right {
+    content: counter(page);
+    font-size: 9pt;
+  }
+}
+
+/* Suppress running headers/footers on front-matter pages (WeasyPrint named pages).
+   wkhtmltopdf does not support named pages; front-matter suppression is not
+   available there without a custom --header-html approach. */
+.half-title,
+.title-page,
+.copyright-page {
+  page: front-matter;
+}
+
+/* The half-title page must end with break-after: recto so that the title-page
+   starts on the next right-hand (odd) page.  This inserts a blank verso page
+   between them, giving the traditional print layout:
+     p.1  Half title  (recto)
+     p.2  [blank]     (verso)
+     p.3  Title page  (recto)
+     p.4  Copyright   (verso)
+     p.5+ TOC         (recto)
+   book-shared.css has break-after: page for .half-title (used by EPUB);
+   this rule overrides it for the KDP PDF. */
+.half-title {
+  break-after: recto;
+}
+
+@page front-matter {
+  @top-left    { content: none; }
+  @top-right   { content: none; }
+  @bottom-left  { content: none; }
+  @bottom-right { content: none; }
+}
+
+/* Print-style section spacing + page breaks for headings.
+   Only H1 (chapter level) starts a new recto page; H2 does not. */
+h1 {
+  margin-top: 4em;
+  margin-bottom: 2em;
+  /* page-break-before must come BEFORE break-before so that WeasyPrint's
+     alias mapping (page-break-before:always → break-before:page) does not
+     silently override break-before:recto.  wkhtmltopdf ignores the 'recto'
+     value and falls back to page-break-before:always. */
+  page-break-before: always; /* fallback for wkhtmltopdf */
+  break-before: recto;       /* WeasyPrint: each chapter starts on a right-hand page */
+  string-set: chapter-title content(); /* CSS Paged Media / WeasyPrint running header */
+}
+
+/* Capture the book title for the left-page running header (WeasyPrint).
+   The .half-title h1 is the first heading and always holds the book title. */
+.half-title h1 {
+  string-set: book-title content();
+}
+
+h2 {
+  margin-top: 3em;
+  margin-bottom: 1.5em;
+}
+
+/* Don't force page breaks for headings in the front matter.
+   Note: pandoc generates id="TOC" (uppercase); CSS IDs are case-sensitive. */
+.half-title h1,
+.half-title h2,
+.title-page h1,
+.title-page h2,
+.copyright-page h1,
+.copyright-page h2,
+#TOC h1,
+#TOC h2 {
+  break-before: auto;
+  page-break-before: auto;
+  margin-top: 0;
+}
+
+/* Table of contents: remove hyperlink styling so entries look like print.
+   Page numbers are appended using CSS target-counter() (WeasyPrint only).
+   wkhtmltopdf does not support target-counter(); links are styled as plain
+   text only under that renderer. */
+#TOC a {
+  color: inherit;
+  text-decoration: none;
+}
+
+#TOC a::after {
+  content: leader('.') target-counter(attr(href), page);
+}
+
+/* Print-ready links: plain text with URL shown in parentheses after the link text.
+   Fragment links (internal anchors, used by the TOC) are excluded via
+   :not([href^="#"]).  This makes URLs readable in the printed book.
+   NOTE: this rule is intentionally duplicated from book-pdf.css.  Both files are
+   loaded independently (never together), so a shared import is not possible.
+   Keep in sync with book-pdf.css. */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a[href]:not([href^="#"])::after {
+  content: " (" attr(href) ")";
+  font-size: 0.85em;
+}

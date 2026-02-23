@@ -13,12 +13,16 @@ use PerlSchool::App::MakeBook;
 
 my $metadata_file = 'book-metadata.yml';
 my $keep_build    = 0;
+my $kdp           = 0;
+my $weasyprint    = 0;
 
 GetOptions(
-  'metadata=s'   => \$metadata_file,
-  'keep-build!'  => \$keep_build,
+  'metadata=s'    => \$metadata_file,
+  'keep-build!'   => \$keep_build,
+  'kdp!'          => \$kdp,
+  'weasyprint!'   => \$weasyprint,
 ) or die <<"USAGE";
-Usage: make_book [--metadata book-metadata.yml] [--keep-build]
+Usage: make_book [--metadata book-metadata.yml] [--keep-build] [--kdp] [--weasyprint]
 USAGE
 
 # ------------------------------------------------------------
@@ -28,6 +32,8 @@ USAGE
 my $app = PerlSchool::App::MakeBook->new(
   metadata_file => $metadata_file,
   keep_build    => $keep_build,
+  kdp           => $kdp,
+  weasyprint    => $weasyprint,
 );
 
 exit $app->run_app();

@@ -1,6 +1,7 @@
 /* Base text */
 body {
-  font-family: "Noto Serif", "Georgia", "Times New Roman", serif;
+  font-family: "Noto Serif", "Georgia", "Times New Roman",
+               "Noto Sans Symbols 2", "Noto Sans Symbols", serif;
   line-height: 1.4;
   font-size: 12.5pt;
 }
@@ -87,5 +88,63 @@ h2 {
 /* Prevent the subtitle on the title page from forcing a new page */
 .title-page h2 {
   page-break-before: auto;
+}
+
+/* Keep headings attached to the paragraph that follows them (orphan control) */
+h1, h2, h3 {
+  break-after: avoid;
+  page-break-after: avoid; /* fallback for wkhtmltopdf */
+}
+
+/* Horizontal rules are a web/screen convention; suppress them in print/ebook */
+hr {
+  display: none;
+}
+
+/* --- CODE / PRE-FORMATTED TEXT --- */
+
+/* Inline code, code blocks, and keyboard input are set 10% smaller than the
+   surrounding body text.  This keeps long lines from bleeding past the right
+   margin and is a common convention in technical print books.
+   Using 0.9em keeps the rule relative so it scales correctly with the body
+   font-size regardless of which PDF or EPUB renderer is used. */
+code, pre, kbd {
+  font-size: 0.9em;
+  font-family: "Noto Sans Mono", "DejaVu Sans Mono", "Courier New", monospace;
+}
+
+/* --- TABLES --- */
+
+/* Full-width table with collapsed borders and fixed layout so that explicit
+   column widths are honoured exactly. */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 1.5em 0;
+  font-size: 0.9em;
+}
+
+/* All header and data cells get a thin border and comfortable padding. */
+th, td {
+  border: 1px solid #444;
+  padding: 0.35em 0.6em;
+  vertical-align: top;
+}
+
+/* Header row: bold text on a light grey background. */
+thead th {
+  background-color: #e8e8e8;
+  font-weight: bold;
+  text-align: left;
+}
+
+/* All columns from the second onwards share equal width (14% each).
+   The first column takes the remaining width automatically under fixed layout.
+   For a 5-column table this gives 44% to col 1 and 14% each to cols 2–5.
+   Adjust the percentage if the book has tables with a different column count. */
+th:nth-child(n+2),
+td:nth-child(n+2) {
+  width: 14%;
 }
 

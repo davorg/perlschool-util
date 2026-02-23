@@ -19,6 +19,9 @@ RUN apt-get update && \
       zlib1g-dev \
       pandoc \
       wkhtmltopdf \
+      python3-weasyprint \
+      fonts-noto-extra \
+      fonts-noto-mono \
       default-jre-headless \
       curl \
       unzip \
