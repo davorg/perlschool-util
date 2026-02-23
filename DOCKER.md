@@ -8,6 +8,7 @@ The image contains:
 * Perl, `cpanm`, and all CPAN dependencies from this repo’s `cpanfile`
 * `pandoc`
 * `wkhtmltopdf`
+* `weasyprint`
 * Java runtime
 * `epubcheck`
 * This repo itself, installed at `/opt/perlschool-util`
@@ -135,6 +136,41 @@ java -jar /opt/epubcheck/epubcheck.jar <args>
 ```
 
 You can also use the alias `epub_check` if you prefer.
+
+### Example: build PDF with WeasyPrint (TOC page numbers + dot leaders)
+
+The default PDF renderer is **wkhtmltopdf**.  It does not support the CSS
+Paged Media Level 3 features needed for TOC page numbers with dot leaders
+(`target-counter()`, `leader()`), running headers via `string-set`, or strict
+recto chapter starts (`break-before: recto`).
+
+**WeasyPrint** implements all of these.  To use it, pass `--weasyprint`:
+
+```bash
+docker run --rm \
+  -v "$PWD":/work \
+  -w /work \
+  davorg/perlschool-util:latest \
+  make_book --weasyprint
+```
+
+With `--weasyprint`:
+
+* Page size, margins, running headers, and page numbers are all driven by
+  `book-pdf.css` (or `book-pdf-kdp.css` for `--kdp`) `@page` rules.
+* The TOC shows dot-leader entries with correct page numbers.
+* Chapter headings start on recto (right-hand, odd-numbered) pages when
+  `--kdp` is also set.
+
+To generate a KDP hard-copy PDF with WeasyPrint:
+
+```bash
+docker run --rm \
+  -v "$PWD":/work \
+  -w /work \
+  davorg/perlschool-util:latest \
+  make_book --kdp --weasyprint
+```
 
 ---
 

@@ -15,6 +15,7 @@ use PerlSchool::Util qw(run slugify file_uri);
 field $metadata_file :param = 'book-metadata.yml';
 field $keep_build    :param = 0;
 field $kdp           :param = 0;
+field $weasyprint    :param = 0;
 
 # Resource paths (initialized with expressions)
 field $utils_root       = path($RealBin)->parent->absolute;
@@ -131,6 +132,7 @@ method display_metadata() {
   say "  Cover      : $cover";
   say "  Output base: $output_base";
   say "  KDP PDF    : yes" if $kdp;
+  say "  Renderer   : " . ($weasyprint ? 'WeasyPrint' : 'wkhtmltopdf');
 }
 
 method setup_directories() {
@@ -340,6 +342,7 @@ method build_body_html() {
     '--from=markdown',
     '--toc',
     '--toc-depth=2',
+    '--toc-title=Table of Contents',
     '--standalone',
     '--resource-path=.:images',
     '-o', $body_html_path->stringify,
@@ -386,27 +389,37 @@ HTML
 method build_pdf($html_output) {
   my $pdf_file = $built_dir->child("$output_base.pdf");
 
-  run(
-    'wkhtmltopdf',
-    '--enable-local-file-access',
-    '--page-size', 'A4',
-    '--margin-top',    '25mm',
-    '--margin-bottom', '25mm',
-    '--margin-left',   '25mm',
-    '--margin-right',  '25mm',
-    # Running headers: book title on the left, current chapter (h1) on the right.
-    # [doctitle] = HTML <title>; [section] = current h1 heading (wkhtmltopdf outline).
-    '--header-left',      '[doctitle]',
-    '--header-right',     '[section]',
-    '--header-line',
-    '--header-font-size', '9',
-    # Page number centred in the footer.
-    '--footer-center',    '[page]',
-    '--footer-font-size', '9',
-    $html_output->stringify,
-    $pdf_file->stringify,
-  );
-  
+  if ($weasyprint) {
+    # WeasyPrint: all layout (page size, margins, headers, footers) is driven
+    # entirely by book-pdf.css @page rules, so no extra CLI flags are needed.
+    run(
+      'weasyprint',
+      $html_output->stringify,
+      $pdf_file->stringify,
+    );
+  } else {
+    run(
+      'wkhtmltopdf',
+      '--enable-local-file-access',
+      '--page-size', 'A4',
+      '--margin-top',    '25mm',
+      '--margin-bottom', '25mm',
+      '--margin-left',   '25mm',
+      '--margin-right',  '25mm',
+      # Running headers: book title on the left, current chapter (h1) on the right.
+      # [doctitle] = HTML <title>; [section] = current h1 heading (wkhtmltopdf outline).
+      '--header-left',      '[doctitle]',
+      '--header-right',     '[section]',
+      '--header-line',
+      '--header-font-size', '9',
+      # Page number centred in the footer.
+      '--footer-center',    '[page]',
+      '--footer-font-size', '9',
+      $html_output->stringify,
+      $pdf_file->stringify,
+    );
+  }
+
   return $pdf_file;
 }
 
@@ -466,29 +479,39 @@ HTML
 method build_kdp_pdf($html_output) {
   my $pdf_file = $built_dir->child("$output_base-kdp.pdf");
 
-  # 7" × 9" (178 mm × 229 mm) — closest KDP standard trim to 18 cm × 23 cm.
-  # Left margin is the gutter (inside); right margin is the outside edge.
-  run(
-    'wkhtmltopdf',
-    '--enable-local-file-access',
-    '--page-width',    '178mm',
-    '--page-height',   '229mm',
-    '--margin-top',    '25mm',
-    '--margin-bottom', '25mm',
-    '--margin-left',   '30mm',
-    '--margin-right',  '20mm',
-    # Running headers: book title on the left, current chapter (h1) on the right.
-    # [doctitle] = HTML <title>; [section] = current h1 heading (wkhtmltopdf outline).
-    '--header-left',      '[doctitle]',
-    '--header-right',     '[section]',
-    '--header-line',
-    '--header-font-size', '9',
-    # Page number centred in the footer (wkhtmltopdf cannot mirror left/right footers).
-    '--footer-center',    '[page]',
-    '--footer-font-size', '9',
-    $html_output->stringify,
-    $pdf_file->stringify,
-  );
+  if ($weasyprint) {
+    # WeasyPrint: all layout (7"×9" page, mirrored margins, headers, footers)
+    # is driven entirely by book-pdf-kdp.css @page rules.
+    run(
+      'weasyprint',
+      $html_output->stringify,
+      $pdf_file->stringify,
+    );
+  } else {
+    # 7" × 9" (178 mm × 229 mm) — closest KDP standard trim to 18 cm × 23 cm.
+    # Left margin is the gutter (inside); right margin is the outside edge.
+    run(
+      'wkhtmltopdf',
+      '--enable-local-file-access',
+      '--page-width',    '178mm',
+      '--page-height',   '229mm',
+      '--margin-top',    '25mm',
+      '--margin-bottom', '25mm',
+      '--margin-left',   '30mm',
+      '--margin-right',  '20mm',
+      # Running headers: book title on the left, current chapter (h1) on the right.
+      # [doctitle] = HTML <title>; [section] = current h1 heading (wkhtmltopdf outline).
+      '--header-left',      '[doctitle]',
+      '--header-right',     '[section]',
+      '--header-line',
+      '--header-font-size', '9',
+      # Page number centred in the footer (wkhtmltopdf cannot mirror left/right footers).
+      '--footer-center',    '[page]',
+      '--footer-font-size', '9',
+      $html_output->stringify,
+      $pdf_file->stringify,
+    );
+  }
 
   return $pdf_file;
 }
@@ -516,6 +539,7 @@ PerlSchool::App::MakeBook - Build PDF and EPUB books from Markdown manuscripts
         metadata_file => 'book-metadata.yml',
         keep_build    => 0,
         kdp           => 0,
+        weasyprint    => 0,
     );
     
     $app->run_app();
@@ -536,6 +560,33 @@ All other fields are initialized automatically from this file during object cons
 =head2 keep_build
 
 Boolean flag to keep the build directory after completion. Defaults to 0 (false).
+
+=head2 weasyprint
+
+Boolean flag to use WeasyPrint as the PDF renderer instead of wkhtmltopdf.
+Defaults to 0 (false).
+
+wkhtmltopdf and WeasyPrint have different capability profiles:
+
+=over 4
+
+=item * B<wkhtmltopdf>: handles running headers and footer page numbers via CLI
+flags (C<--header-left>, C<--header-right>, C<--footer-center>, etc.).  It does
+B<not> support CSS Paged Media Level 3 functions such as C<target-counter()>,
+C<leader()>, C<string-set>, or C<break-before: recto>.  TOC page numbers with
+dot leaders are therefore B<not> available under wkhtmltopdf.
+
+=item * B<WeasyPrint>: fully implements CSS Paged Media Level 3 including
+C<@page :left>/C<:right> margin boxes, C<string-set> running strings,
+C<target-counter()>, C<leader()>, and C<break-before: recto>.  All layout
+(page size, margins, headers, footers, TOC page numbers) is driven by the CSS
+files alone.  WeasyPrint B<does not> support the wkhtmltopdf-style CLI header/
+footer flags, but those are not needed when using WeasyPrint.
+
+=back
+
+Pass C<--weasyprint> to C<bin/make_book> to use WeasyPrint.  The C<weasyprint>
+binary must be on C<PATH> (it is pre-installed in the Docker image).
 
 =head2 kdp
 
@@ -648,15 +699,16 @@ Returns the Path::Tiny object for the stitched HTML file (C<build/book.html>).
 
 =head2 build_pdf($html_output)
 
-Generates the LeanPub PDF file (A4) from the HTML using wkhtmltopdf.
+Generates the LeanPub PDF file (A4) from the HTML.
 
-Running headers are added via wkhtmltopdf's C<--header-left> (book title,
-from the HTML C<< <title> >>) and C<--header-right> (current chapter/h1 heading).
-A page number is placed centred in the footer.
+When C<weasyprint> is set, calls C<weasyprint> and all layout is driven by
+C<book-pdf.css> C<@page> rules (running headers via C<string-set>, page numbers
+via C<counter(page)>, TOC page numbers via C<target-counter()>).
 
-For CSS paged-media renderers such as WeasyPrint the equivalent rules are in
-C<book-pdf.css> using C<@page :left> / C<@page :right> margin boxes and
-C<string-set> running strings.
+When C<weasyprint> is not set, calls C<wkhtmltopdf> with C<--header-left>
+(book title), C<--header-right> (current chapter), C<--header-line>, and
+C<--footer-center> (page number) CLI flags.  C<target-counter()> and dot leaders
+in the TOC are not supported by wkhtmltopdf.
 
 Returns the Path::Tiny object for the generated PDF file.
 
@@ -669,13 +721,14 @@ Only called when the C<kdp> flag is set.
 
 =head2 build_kdp_pdf($html_output)
 
-Generates the KDP hard-copy PDF (7" × 9", mirrored margins) from the HTML using
-wkhtmltopdf.
+Generates the KDP hard-copy PDF (7" × 9", mirrored margins) from the HTML.
 
-Running headers and a centred footer page number are added via wkhtmltopdf CLI
-args (same as C<build_pdf()>).  For CSS paged-media renderers the equivalent
-rules are in C<book-pdf-kdp.css>, where the page number additionally appears on
-the outside corner of each page (left corner on verso, right corner on recto).
+When C<weasyprint> is set, calls C<weasyprint> and all layout is driven by
+C<book-pdf-kdp.css> C<@page> rules (page size, mirrored margins, running headers,
+outside-corner page numbers, TOC page numbers via C<target-counter()>).
+
+When C<weasyprint> is not set, calls C<wkhtmltopdf> with explicit page dimensions
+and C<--header-left>/C<--header-right>/C<--footer-center> CLI flags.
 
 Returns the Path::Tiny object for the generated KDP PDF file.
 Only called when the C<kdp> flag is set.

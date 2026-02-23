@@ -94,15 +94,16 @@ h2 {
   margin-bottom: 1.5em;
 }
 
-/* Don't force page breaks for headings in the front matter */
+/* Don't force page breaks for headings in the front matter.
+   Note: pandoc generates id="TOC" (uppercase); CSS IDs are case-sensitive. */
 .half-title h1,
 .half-title h2,
 .title-page h1,
 .title-page h2,
 .copyright-page h1,
 .copyright-page h2,
-#toc h1,
-#toc h2 {
+#TOC h1,
+#TOC h2 {
   break-before: auto;
   page-break-before: auto;
   margin-top: 0;

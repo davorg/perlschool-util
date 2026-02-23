@@ -76,7 +76,8 @@ h2 {
   @bottom-center { content: none; }
 }
 
-/* Don't force extra page breaks for headings in the front matter */
+/* Don't force extra page breaks for headings in the front matter.
+   Note: pandoc generates id="TOC" (uppercase); CSS IDs are case-sensitive. */
 .cover-page h1,
 .cover-page h2,
 .half-title h1,
@@ -85,8 +86,8 @@ h2 {
 .title-page h2,
 .copyright-page h1,
 .copyright-page h2,
-#toc h1,
-#toc h2 {
+#TOC h1,
+#TOC h2 {
   page-break-before: auto;
   margin-top: 0;   /* optional: avoid big vertical gaps */
 }

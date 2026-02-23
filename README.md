@@ -113,22 +113,43 @@ where needed.
 The 7" × 9" trim size is the closest standard KDP format to the original
 18 cm × 23 cm target.
 
+#### PDF renderer: wkhtmltopdf vs WeasyPrint (`--weasyprint`)
+
+By default, `make_book` uses **wkhtmltopdf** to generate PDFs.  wkhtmltopdf
+is fast and handles most layout well via its CLI flags, but it does **not**
+support the CSS Paged Media Level 3 features that the PDF stylesheets rely on
+for:
+
+* TOC page numbers with dot leaders (`target-counter()`, `leader()`)
+* Running headers driven by CSS `string-set`
+* Strict recto chapter starts (`break-before: recto`)
+
+Pass `--weasyprint` to use **WeasyPrint** instead.  WeasyPrint fully implements
+CSS Paged Media Level 3, so all of the above work correctly.  The `weasyprint`
+binary must be on `PATH` (it is preinstalled in the Docker image).
+
+```bash
+make_book --weasyprint          # A4 LeanPub PDF via WeasyPrint
+make_book --kdp --weasyprint    # KDP hard-copy PDF via WeasyPrint
+```
+
 `make_book` creates a temporary `build/` directory for intermediate files and
 writes final artefacts (`.pdf`, `-kdp.pdf` when `--kdp` is set, and `.epub`)
 under `built/`. By default it removes `build/` at the end of a successful
 run; you can pass `--keep-build` when debugging.
 
-Both utilities assume that external tools (`pandoc`, `wkhtmltopdf`, Java,
-`epubcheck`) are available on `PATH`. When run inside the Docker image, these
-are all preinstalled.
+Both utilities assume that external tools (`pandoc`, `wkhtmltopdf` or
+`weasyprint`, Java, `epubcheck`) are available on `PATH`. When run inside the
+Docker image, all of these are preinstalled.
 
 ## Docker image
 
 The repository includes a `Dockerfile` and helper script for building a
 Docker image that contains all required tools (Perl, CPAN modules, pandoc,
-wkhtmltopdf, Java, epubcheck) and this repo itself. The image is intended to
-be used from individual book repos, mounting a book directory at `/work` and
-running `make_book`, `check_ms_html` and `epubcheck` inside the container.
+wkhtmltopdf, weasyprint, Java, epubcheck) and this repo itself. The image is
+intended to be used from individual book repos, mounting a book directory at
+`/work` and running `make_book`, `check_ms_html` and `epubcheck` inside the
+container.
 
 Full details on building, tagging and using the image are in
 [`DOCKER.md`](DOCKER.md).

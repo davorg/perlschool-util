@@ -19,6 +19,7 @@ RUN apt-get update && \
       zlib1g-dev \
       pandoc \
       wkhtmltopdf \
+      python3-weasyprint \
       default-jre-headless \
       curl \
       unzip \
