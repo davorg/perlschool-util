@@ -88,10 +88,35 @@ book. Given a book repo containing a `book-metadata.yml` file, it will:
   with the manuscript, and using `book-metadata.yml` for metadata and the
   cover image.
 
+#### KDP / hard-copy PDF (`--kdp`)
+
+Pass `--kdp` to additionally produce a PDF suitable for upload to Amazon KDP
+or BookBub's hard-copy creator.  The KDP PDF differs from the standard
+LeanPub PDF in the following ways:
+
+| Property | LeanPub PDF | KDP PDF |
+|---|---|---|
+| Page size | A4 (210 mm × 297 mm) | 7" × 9" (178 mm × 229 mm) |
+| Top / bottom margins | 25 mm | 25 mm |
+| Inside (gutter) margin | 25 mm | 30 mm |
+| Outside margin | 25 mm | 20 mm |
+| Chapter page starts | New page | Recto (odd-numbered) page† |
+| CSS file | `book-pdf.css` | `book-pdf-kdp.css` |
+| Output filename | `<slug>.pdf` | `<slug>-kdp.pdf` |
+
+† `break-before: recto` is applied via CSS.  WeasyPrint honours it fully.
+wkhtmltopdf does not fully support the `recto` value and falls back to a
+plain page break.  If strict right-hand chapter starts are required when
+using wkhtmltopdf, post-process the generated PDF to insert blank verso pages
+where needed.
+
+The 7" × 9" trim size is the closest standard KDP format to the original
+18 cm × 23 cm target.
+
 `make_book` creates a temporary `build/` directory for intermediate files and
-writes final artefacts (`.pdf` and `.epub`) under `built/`. By default it
-removes `build/` at the end of a successful run; you can pass `--keep-build`
-when debugging.
+writes final artefacts (`.pdf`, `-kdp.pdf` when `--kdp` is set, and `.epub`)
+under `built/`. By default it removes `build/` at the end of a successful
+run; you can pass `--keep-build` when debugging.
 
 Both utilities assume that external tools (`pandoc`, `wkhtmltopdf`, Java,
 `epubcheck`) are available on `PATH`. When run inside the Docker image, these

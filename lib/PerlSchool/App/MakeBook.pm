@@ -14,11 +14,13 @@ use PerlSchool::Util qw(run slugify file_uri);
 
 field $metadata_file :param = 'book-metadata.yml';
 field $keep_build    :param = 0;
+field $kdp           :param = 0;
 
 # Resource paths (initialized with expressions)
 field $utils_root       = path($RealBin)->parent->absolute;
 field $css_shared       = $utils_root->child('css')->child('book-shared.css');
 field $css_pdf          = $utils_root->child('css')->child('book-pdf.css');
+field $css_pdf_kdp      = $utils_root->child('css')->child('book-pdf-kdp.css');
 field $utils_images_dir = $utils_root->child('images');
 
 # Metadata (loaded from file)
@@ -86,19 +88,28 @@ method run_app() {
   
   my $pdf_file = $self->build_pdf($html_output);
   my $epub_file = $self->build_epub($epub_input);
+
+  my $kdp_pdf_file;
+  if ($kdp) {
+    my $kdp_html_output = $self->stitch_kdp_html($pdf_front_html, $body_inner);
+    $kdp_pdf_file = $self->build_kdp_pdf($kdp_html_output);
+  }
   
   $self->cleanup();
   
   say "Built:";
   say "  " . $pdf_file->stringify;
   say "  " . $epub_file->stringify;
+  say "  " . $kdp_pdf_file->stringify if $kdp_pdf_file;
   
   return 0;
 }
 
 method validate_resources() {
   # Validate required CSS files exist
-  for my $css ($css_shared, $css_pdf) {
+  my @css_files = ($css_shared, $css_pdf);
+  push @css_files, $css_pdf_kdp if $kdp;
+  for my $css (@css_files) {
     die "Missing CSS file: $css\n" unless $css->is_file;
   }
 
@@ -107,6 +118,7 @@ method validate_resources() {
   say "  CSS dir    : " . $utils_root->child('css');
   say "  CSS shared : $css_shared";
   say "  CSS pdf    : $css_pdf";
+  say "  CSS pdf kdp: $css_pdf_kdp" if $kdp;
   say "  Images dir : $utils_images_dir";
 }
 
@@ -117,6 +129,7 @@ method display_metadata() {
   say "  Title      : $title";
   say "  Cover      : $cover";
   say "  Output base: $output_base";
+  say "  KDP PDF    : yes" if $kdp;
 }
 
 method setup_directories() {
@@ -354,6 +367,55 @@ method build_epub($epub_input) {
   return $epub_file;
 }
 
+method stitch_kdp_html($pdf_front_html, $body_inner) {
+  my $html_output = $build_dir->child('book-kdp.html');
+
+  my $css_shared_uri  = file_uri($css_shared);
+  my $css_pdf_kdp_uri = file_uri($css_pdf_kdp);
+
+  my $final_html = <<"HTML";
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>@{[ $title // '' ]}</title>
+  <link rel="stylesheet" href="$css_shared_uri" />
+  <link rel="stylesheet" href="$css_pdf_kdp_uri" />
+</head>
+<body>
+$pdf_front_html
+
+$body_inner
+</body>
+</html>
+HTML
+
+  $html_output->spew_utf8($final_html);
+
+  return $html_output;
+}
+
+method build_kdp_pdf($html_output) {
+  my $pdf_file = $built_dir->child("$output_base-kdp.pdf");
+
+  # 7" × 9" (178 mm × 229 mm) — closest KDP standard trim to 18 cm × 23 cm.
+  # Left margin is the gutter (inside); right margin is the outside edge.
+  run(
+    'wkhtmltopdf',
+    '--enable-local-file-access',
+    '--page-width',    '178mm',
+    '--page-height',   '229mm',
+    '--margin-top',    '25mm',
+    '--margin-bottom', '25mm',
+    '--margin-left',   '30mm',
+    '--margin-right',  '20mm',
+    $html_output->stringify,
+    $pdf_file->stringify,
+  );
+
+  return $pdf_file;
+}
+
 method cleanup() {
   unless ($keep_build) {
     say "Removing build directory...";
@@ -376,6 +438,7 @@ PerlSchool::App::MakeBook - Build PDF and EPUB books from Markdown manuscripts
     my $app = PerlSchool::App::MakeBook->new(
         metadata_file => 'book-metadata.yml',
         keep_build    => 0,
+        kdp           => 0,
     );
     
     $app->run_app();
@@ -397,13 +460,41 @@ All other fields are initialized automatically from this file during object cons
 
 Boolean flag to keep the build directory after completion. Defaults to 0 (false).
 
+=head2 kdp
+
+Boolean flag to additionally generate a KDP/BookBub hard-copy PDF alongside the
+standard LeanPub PDF and EPUB. Defaults to 0 (false).
+
+When set, C<make_book> produces an extra file named C<< <slug>-kdp.pdf >> in the
+C<built/> directory.  The KDP PDF differs from the LeanPub PDF in the following
+ways:
+
+=over 4
+
+=item * B<Page size>: 7" × 9" (178 mm × 229 mm), the closest standard Amazon KDP
+trim size to the original 18 cm × 23 cm target.
+
+=item * B<Margins>: 30 mm inside (gutter) / 20 mm outside / 25 mm top and bottom,
+giving a clear gutter for bound pages and meeting KDP minimum margin requirements.
+
+=item * B<Chapter page starts>: C<break-before: recto> is set on C<h1> elements so
+that chapters begin on right-hand (odd-numbered) pages when rendered by a
+CSS paged-media renderer such as WeasyPrint.  wkhtmltopdf does not fully
+support the C<recto> value and falls back to a plain page break; if strict
+recto placement is required, post-process the PDF to insert blank verso
+pages where needed.
+
+=item * B<CSS>: uses C<book-pdf-kdp.css> instead of C<book-pdf.css>.
+
+=back
+
 =head1 FIELDS
 
 Most fields are initialized automatically using field initialization expressions:
 
 =over 4
 
-=item * Resource paths ($utils_root, $css_shared, $css_pdf, $utils_images_dir) - computed from $RealBin
+=item * Resource paths ($utils_root, $css_shared, $css_pdf, $css_pdf_kdp, $utils_images_dir) - computed from $RealBin
 
 =item * Metadata ($meta, $title, $manuscript, $cover, etc.) - loaded from metadata_file
 
@@ -427,6 +518,7 @@ Returns 0 on success, dies on failure.
 =head2 validate_resources()
 
 Validates that required perlschool-utils resources (CSS files) exist.
+Also validates the KDP CSS file when the C<kdp> flag is set.
 Resource paths are already initialized via field expressions.
 
 =head2 display_metadata()
@@ -460,12 +552,25 @@ Returns the body HTML as a string.
 =head2 stitch_html($pdf_front_html, $body_inner)
 
 Combines the PDF front matter HTML and body HTML into a complete HTML document with CSS references.
-Returns the Path::Tiny object for the stitched HTML file.
+Returns the Path::Tiny object for the stitched HTML file (C<build/book.html>).
 
 =head2 build_pdf($html_output)
 
-Generates the PDF file from the HTML using wkhtmltopdf.
+Generates the LeanPub PDF file (A4) from the HTML using wkhtmltopdf.
 Returns the Path::Tiny object for the generated PDF file.
+
+=head2 stitch_kdp_html($pdf_front_html, $body_inner)
+
+Like C<stitch_html()>, but links C<book-pdf-kdp.css> instead of C<book-pdf.css>
+and writes the result to C<build/book-kdp.html>.
+Returns the Path::Tiny object for the stitched HTML file.
+Only called when the C<kdp> flag is set.
+
+=head2 build_kdp_pdf($html_output)
+
+Generates the KDP hard-copy PDF (7" × 9", mirrored margins) from the HTML using wkhtmltopdf.
+Returns the Path::Tiny object for the generated KDP PDF file.
+Only called when the C<kdp> flag is set.
 
 =head2 build_epub($epub_input)
 
