@@ -21,6 +21,7 @@ RUN apt-get update && \
       wkhtmltopdf \
       python3-weasyprint \
       fonts-noto-extra \
+      fonts-noto-mono \
       default-jre-headless \
       curl \
       unzip \

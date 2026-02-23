@@ -90,6 +90,18 @@ h2 {
   page-break-before: auto;
 }
 
+/* --- CODE / PRE-FORMATTED TEXT --- */
+
+/* Inline code, code blocks, and keyboard input are set 10% smaller than the
+   surrounding body text.  This keeps long lines from bleeding past the right
+   margin and is a common convention in technical print books.
+   Using 0.9em keeps the rule relative so it scales correctly with the body
+   font-size regardless of which PDF or EPUB renderer is used. */
+code, pre, kbd {
+  font-size: 0.9em;
+  font-family: "Noto Sans Mono", "DejaVu Sans Mono", "Courier New", monospace;
+}
+
 /* --- TABLES --- */
 
 /* Full-width table with collapsed borders and fixed layout so that explicit
