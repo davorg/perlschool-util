@@ -104,3 +104,19 @@ h2 {
   content: leader('.') target-counter(attr(href), page);
 }
 
+/* Print-ready links: plain text with URL shown in parentheses after the link text.
+   Fragment links (internal anchors, used by the TOC) are excluded via
+   :not([href^="#"]).  This makes URLs readable in the printed book.
+   NOTE: this rule is intentionally duplicated in book-pdf-kdp.css.  Both files are
+   loaded independently (never together), so a shared import is not possible.
+   Keep in sync with book-pdf-kdp.css. */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a[href]:not([href^="#"])::after {
+  content: " (" attr(href) ")";
+  font-size: 0.85em;
+}
+

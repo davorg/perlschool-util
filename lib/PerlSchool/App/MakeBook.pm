@@ -91,7 +91,8 @@ method run_app() {
 
   my $kdp_pdf_file;
   if ($kdp) {
-    my $kdp_html_output = $self->stitch_kdp_html($pdf_front_html, $body_inner);
+    my $kdp_front_html  = $self->render_kdp_front_matter();
+    my $kdp_html_output = $self->stitch_kdp_html($kdp_front_html, $body_inner);
     $kdp_pdf_file = $self->build_kdp_pdf($kdp_html_output);
   }
   
@@ -199,6 +200,64 @@ PDF_TMPL
     or die "Template error (PDF front matter): " . $tt->error . "\n";
 
   return $pdf_front_html;
+}
+
+method render_kdp_front_matter() {
+
+  # FRONT MATTER FOR KDP PDF — same as render_pdf_front_matter() but without
+  # the cover-page section: KDP hard-copy books do not need an image of the
+  # cover on the front page (the physical cover is printed separately by KDP).
+  my $kdp_front_tmpl = <<'KDP_TMPL';
+<section class="half-title">
+  <h1>[% title %]</h1>
+</section>
+
+<section class="title-page">
+  <h1>[% title %]</h1>
+[% IF subtitle %]
+  <h2 class="subtitle">[% subtitle %]</h2>
+[% END %]
+[% IF author %]
+  <p class="author">[% author %]</p>
+[% END %]
+</section>
+
+<section class="copyright-page">
+  <p class="title">[% title %]</p>
+  <p>&copy; [% copyright_year %] [% copyright_holder %] . All rights reserved.</p>
+
+[% IF isbn -%]
+  <p>ISBN: [% isbn %]</p>
+[% END -%]
+
+[% IF publisher -%]
+  <p>Published by [% publisher %].</p>
+[% END -%]
+
+[% IF publisher_web -%]
+  <p>[% publisher_web %]</p>
+[% END -%]
+
+  <p>No part of this publication may be reproduced, stored in a retrieval system, or
+    transmitted in any form or by any means, electronic, mechanical, photocopying,
+    recording or otherwise, without the prior written permission of the publisher,
+    except in the case of brief quotations embodied in critical articles and reviews.</p>
+
+  <p>The information in this book is distributed on an "as is" basis, without warranty.
+    While every precaution has been taken in the preparation of this book, neither the
+    author nor the publisher shall have any liability to any person or entity with
+    respect to any loss or damage caused or alleged to be caused directly or indirectly
+    by the instructions, examples, or other content contained in this book.</p>
+
+  <p>Set in Markdown and typeset to PDF/ePub with Pandoc and wkhtmltopdf.</p>
+</section>
+KDP_TMPL
+
+  my $kdp_front_html;
+  $tt->process(\$kdp_front_tmpl, $template_context, \$kdp_front_html)
+    or die "Template error (KDP front matter): " . $tt->error . "\n";
+
+  return $kdp_front_html;
 }
 
 method render_epub_front_matter() {
@@ -492,6 +551,13 @@ ways:
 =item * B<Page size>: 7" × 9" (178 mm × 229 mm), the closest standard Amazon KDP
 trim size to the original 18 cm × 23 cm target.
 
+=item * B<No cover image>: the cover page section is omitted from the KDP front
+matter; the physical cover is printed separately by KDP from the cover file
+submitted during KDP setup.
+
+=item * B<Font size>: body text is enlarged by ~40% (17.5 pt) from the LeanPub
+base of 12.5 pt.  Relative heading sizes (em) scale automatically.
+
 =item * B<Margins>: 30 mm inside (gutter) / 20 mm outside / 25 mm top and bottom,
 giving a clear gutter for bound pages and meeting KDP minimum margin requirements.
 
@@ -552,6 +618,14 @@ Creates and prepares the build and built directories, removing any existing buil
 
 Renders the PDF front matter HTML using Template Toolkit, including cover page, half-title, title page, and copyright page.
 Returns the rendered HTML string.
+
+=head2 render_kdp_front_matter()
+
+Like C<render_pdf_front_matter()>, but omits the cover-page section.
+KDP hard-copy books do not need a printed cover image in the interior PDF;
+the physical cover is supplied separately to KDP.
+Returns the rendered HTML string.
+Only called when the C<kdp> flag is set.
 
 =head2 render_epub_front_matter()
 

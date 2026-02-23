@@ -6,6 +6,13 @@
    wkhtmltopdf ignores them, but respects the --page-width / --page-height /
    --margin-* flags that make_book passes on the command line when --kdp is set. */
 
+/* KDP body font: bump book-shared.css's 12.5 pt base by ~40% for comfortable
+   print reading on the smaller 7" × 9" trim. Relative heading sizes (em) scale
+   automatically. */
+body {
+  font-size: 17.5pt;
+}
+
 @page {
   size: 178mm 229mm; /* 7" × 9" */
   margin-top:    25mm;
@@ -51,7 +58,6 @@
 /* Suppress running headers/footers on front-matter pages (WeasyPrint named pages).
    wkhtmltopdf does not support named pages; front-matter suppression is not
    available there without a custom --header-html approach. */
-.cover-page,
 .half-title,
 .title-page,
 .copyright-page {
@@ -88,15 +94,7 @@ h2 {
   margin-bottom: 1.5em;
 }
 
-/* 7" × 9" cover image height cap:
-   229mm page height − 2 × 25mm margins = 179mm */
-.cover-page .cover-image {
-  max-height: 179mm;
-}
-
 /* Don't force page breaks for headings in the front matter */
-.cover-page h1,
-.cover-page h2,
 .half-title h1,
 .half-title h2,
 .title-page h1,
@@ -121,4 +119,20 @@ h2 {
 
 #TOC a::after {
   content: leader('.') target-counter(attr(href), page);
+}
+
+/* Print-ready links: plain text with URL shown in parentheses after the link text.
+   Fragment links (internal anchors, used by the TOC) are excluded via
+   :not([href^="#"]).  This makes URLs readable in the printed book.
+   NOTE: this rule is intentionally duplicated from book-pdf.css.  Both files are
+   loaded independently (never together), so a shared import is not possible.
+   Keep in sync with book-pdf.css. */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a[href]:not([href^="#"])::after {
+  content: " (" attr(href) ")";
+  font-size: 0.85em;
 }
