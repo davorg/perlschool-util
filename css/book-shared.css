@@ -90,6 +90,17 @@ h2 {
   page-break-before: auto;
 }
 
+/* Keep headings attached to the paragraph that follows them (orphan control) */
+h1, h2, h3 {
+  break-after: avoid;
+  page-break-after: avoid; /* fallback for wkhtmltopdf */
+}
+
+/* Horizontal rules are a web/screen convention; suppress them in print/ebook */
+hr {
+  display: none;
+}
+
 /* --- CODE / PRE-FORMATTED TEXT --- */
 
 /* Inline code, code blocks, and keyboard input are set 10% smaller than the
