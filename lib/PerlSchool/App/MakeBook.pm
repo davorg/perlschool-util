@@ -606,8 +606,8 @@ trim size to the original 18 cm × 23 cm target.
 matter; the physical cover is printed separately by KDP from the cover file
 submitted during KDP setup.
 
-=item * B<Font size>: body text is enlarged by ~40% (17.5 pt) from the LeanPub
-base of 12.5 pt.  Relative heading sizes (em) scale automatically.
+=item * B<Font size>: inherits the 12.5 pt base from C<book-shared.css>.
+To adjust, add a C<body { font-size: ...; }> rule in C<book-pdf-kdp.css>.
 
 =item * B<Margins>: 30 mm inside (gutter) / 20 mm outside / 25 mm top and bottom,
 giving a clear gutter for bound pages and meeting KDP minimum margin requirements.

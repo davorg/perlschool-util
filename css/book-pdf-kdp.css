@@ -4,14 +4,10 @@
 
    @page rules are used by WeasyPrint (and other CSS paged-media renderers).
    wkhtmltopdf ignores them, but respects the --page-width / --page-height /
-   --margin-* flags that make_book passes on the command line when --kdp is set. */
+   --margin-* flags that make_book passes on the command line when --kdp is set.
 
-/* KDP body font: bump book-shared.css's 12.5 pt base by ~40% for comfortable
-   print reading on the smaller 7" × 9" trim. Relative heading sizes (em) scale
-   automatically. */
-body {
-  font-size: 17.5pt;
-}
+   Body font size inherits the 12.5 pt base from book-shared.css.
+   Adjust the body { font-size } rule here if a different size is needed. */
 
 @page {
   size: 178mm 229mm; /* 7" × 9" */
