@@ -335,6 +335,15 @@ method build_pdf($html_output) {
     '--margin-bottom', '25mm',
     '--margin-left',   '25mm',
     '--margin-right',  '25mm',
+    # Running headers: book title on the left, current chapter (h1) on the right.
+    # [doctitle] = HTML <title>; [section] = current h1 heading (wkhtmltopdf outline).
+    '--header-left',      '[doctitle]',
+    '--header-right',     '[section]',
+    '--header-line',
+    '--header-font-size', '9',
+    # Page number centred in the footer.
+    '--footer-center',    '[page]',
+    '--footer-font-size', '9',
     $html_output->stringify,
     $pdf_file->stringify,
   );
@@ -409,6 +418,15 @@ method build_kdp_pdf($html_output) {
     '--margin-bottom', '25mm',
     '--margin-left',   '30mm',
     '--margin-right',  '20mm',
+    # Running headers: book title on the left, current chapter (h1) on the right.
+    # [doctitle] = HTML <title>; [section] = current h1 heading (wkhtmltopdf outline).
+    '--header-left',      '[doctitle]',
+    '--header-right',     '[section]',
+    '--header-line',
+    '--header-font-size', '9',
+    # Page number centred in the footer (wkhtmltopdf cannot mirror left/right footers).
+    '--footer-center',    '[page]',
+    '--footer-font-size', '9',
     $html_output->stringify,
     $pdf_file->stringify,
   );
@@ -482,7 +500,7 @@ that chapters begin on right-hand (odd-numbered) pages when rendered by a
 CSS paged-media renderer such as WeasyPrint.  wkhtmltopdf does not fully
 support the C<recto> value and falls back to a plain page break; if strict
 recto placement is required, post-process the PDF to insert blank verso
-pages where needed.
+pages where needed.  H2 headings do B<not> force a new page in either PDF.
 
 =item * B<CSS>: uses C<book-pdf-kdp.css> instead of C<book-pdf.css>.
 
@@ -557,6 +575,15 @@ Returns the Path::Tiny object for the stitched HTML file (C<build/book.html>).
 =head2 build_pdf($html_output)
 
 Generates the LeanPub PDF file (A4) from the HTML using wkhtmltopdf.
+
+Running headers are added via wkhtmltopdf's C<--header-left> (book title,
+from the HTML C<< <title> >>) and C<--header-right> (current chapter/h1 heading).
+A page number is placed centred in the footer.
+
+For CSS paged-media renderers such as WeasyPrint the equivalent rules are in
+C<book-pdf.css> using C<@page :left> / C<@page :right> margin boxes and
+C<string-set> running strings.
+
 Returns the Path::Tiny object for the generated PDF file.
 
 =head2 stitch_kdp_html($pdf_front_html, $body_inner)
@@ -568,7 +595,14 @@ Only called when the C<kdp> flag is set.
 
 =head2 build_kdp_pdf($html_output)
 
-Generates the KDP hard-copy PDF (7" × 9", mirrored margins) from the HTML using wkhtmltopdf.
+Generates the KDP hard-copy PDF (7" × 9", mirrored margins) from the HTML using
+wkhtmltopdf.
+
+Running headers and a centred footer page number are added via wkhtmltopdf CLI
+args (same as C<build_pdf()>).  For CSS paged-media renderers the equivalent
+rules are in C<book-pdf-kdp.css>, where the page number additionally appears on
+the outside corner of each page (left corner on verso, right corner on recto).
+
 Returns the Path::Tiny object for the generated KDP PDF file.
 Only called when the C<kdp> flag is set.
 
