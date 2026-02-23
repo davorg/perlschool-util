@@ -342,7 +342,7 @@ method build_body_html() {
     '--from=markdown',
     '--toc',
     '--toc-depth=2',
-    '--toc-title=Table of Contents',
+    '--metadata', 'toc-title=Table of Contents',
     '--standalone',
     '--resource-path=.:images',
     '-o', $body_html_path->stringify,
