@@ -6,8 +6,14 @@
    wkhtmltopdf ignores them, but respects the --page-width / --page-height /
    --margin-* flags that make_book passes on the command line when --kdp is set.
 
-   Body font size inherits the 12.5 pt base from book-shared.css.
-   Adjust the body { font-size } rule here if a different size is needed. */
+   Body font size is set slightly smaller than book-shared.css's 12.5 pt base
+   (11.5 pt ≈ 8% smaller) because WeasyPrint renders pt sizes at a higher
+   physical density than wkhtmltopdf on a 7" × 9" trim. Adjust here as needed. */
+
+/* KDP body font — slightly smaller than the 12.5 pt base in book-shared.css */
+body {
+  font-size: 11.5pt;
+}
 
 @page {
   size: 178mm 229mm; /* 7" × 9" */
