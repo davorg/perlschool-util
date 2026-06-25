@@ -8,7 +8,7 @@ use Path::Tiny;
 use XML::LibXML;
 
 field $parser = XML::LibXML->new( recover => 0 );
-field $errors :reader = 0;
+field $errors = 0;
 field $files  :param  = [];
 
 # State for current file processing

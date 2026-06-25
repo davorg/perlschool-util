@@ -1,5 +1,11 @@
 FROM ubuntu:24.04
 
+# Image version, supplied by build_docker from the VERSION file. Recorded as
+# an OCI-standard label so it's visible via `docker inspect` even when an
+# image has been re-tagged or pulled without its original :X.Y.Z tag.
+ARG VERSION=0.0.0-dev
+LABEL org.opencontainers.image.version="${VERSION}"
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
@@ -19,7 +25,7 @@ RUN apt-get update && \
       zlib1g-dev \
       pandoc \
       wkhtmltopdf \
-      python3-weasyprint \
+      weasyprint \
       fonts-noto-extra \
       fonts-noto-mono \
       default-jre-headless \
@@ -67,4 +73,3 @@ RUN ln -s /opt/perlschool-util/bin/make_book    /usr/local/bin/make_book && \
 WORKDIR /work
 
 CMD ["/bin/bash"]
-
