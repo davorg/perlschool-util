@@ -12,7 +12,7 @@
 
 /* KDP body font — slightly smaller than the 12.5 pt base in book-shared.css */
 body {
-  font-size: 11.5pt;
+  font-size: 10pt;
 }
 
 @page {
